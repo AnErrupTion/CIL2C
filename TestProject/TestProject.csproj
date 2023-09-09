@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <OutputPath>../bin</OutputPath>
+        <TargetFramework>net7.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <UseAppHost>false</UseAppHost>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <DisableStandardFrameworkResolution>true</DisableStandardFrameworkResolution>
+        <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+        <AddAdditionalExplicitAssemblyReferences>false</AddAdditionalExplicitAssemblyReferences>
+        <AdditionalExplicitAssemblyReferences />
+        <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
+    </PropertyGroup>
+
+</Project>
