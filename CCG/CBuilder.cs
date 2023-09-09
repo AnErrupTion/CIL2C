@@ -1,4 +1,3 @@
-using CCG.Builders;
 using CCG.Expressions;
 
 namespace CCG;
@@ -20,6 +19,9 @@ public abstract class CBuilder
 
     public abstract void BeginBlock();
     public abstract void EndBlock(bool requireNewLine);
+
+    public abstract void AddLabel(string label);
+    public abstract void GoToLabel(string label);
 
     public abstract void AddVariable(CVariable variable);
     public abstract void AddVariable(CVariable variable, CExpression value);

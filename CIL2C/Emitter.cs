@@ -14,16 +14,20 @@ public class Emitter
 
     private uint _stackVariableCount;
 
-    public Emitter(bool minify) => _builder = minify ? new CMinifiedBuilder() : new CBeautifiedBuilder();
+    public Emitter(bool minify, bool enableComments)
+        => _builder = minify ? new CMinifiedBuilder(enableComments) : new CBeautifiedBuilder(enableComments);
 
     public override string? ToString() => _builder.ToString();
 
     /*
      * This method emits a CIL method into C. Let's see how it works:
-     *  1. It creates a C function with the safe name and the return type of the method.
-     *  2. It defines the local variables of the method as C variables. Local variables are the list of variables
+     *  1. It creates a C function with the safe name, the return type and the arguments of the method.
+     *  2. It creates a list of labels that will later be defined in the function itself. This is required because we
+     * need to know where exactly to place the label in the code before attempting to emit any instructions at all.
+     *  3. It defines the local variables of the method as C variables. Local variables are the list of variables
      * stored in the local variable list in CIL.
-     *  3. It emits each instruction, one by one. Some of them are completely ignored (like nop), some are partially
+     *  4. It defines the labels that were previously computed.
+     *  5. It emits each instruction, one by one. Some of them are completely ignored (like nop), some are partially
      * ignored (like dup where it does nothing at runtime, but it fiddles with the compiler's stack), and all others are
      * emitting runtime instructions. For most instructions, the compiler uses a stack to track the values in what would
      * be the CIL evaluation stack. At runtime (so in the C code), those stack values are actually constant variables,
@@ -38,6 +42,17 @@ public class Emitter
             functionArguments[i] = new CVariable(false, false, Utils.GetCType(argument.Type), argument.Name);
         }
 
+        var labels = new Dictionary<uint, string>();
+        foreach (var instruction in method.Body.Instructions)
+        {
+            if (instruction.OpCode.OperandType is not (OperandType.InlineBrTarget or OperandType.ShortInlineBrTarget)) continue;
+
+            var targetInstruction = (Instruction)instruction.Operand;
+            var label = $"IL_{targetInstruction.Offset:X4}";
+
+            labels.Add(targetInstruction.Offset, label);
+        }
+
         _builder.AddFunction(Utils.GetCType(method.ReturnType), Utils.GetSafeName(method.FullName), functionArguments);
         _builder.BeginBlock();
 
@@ -50,16 +65,26 @@ public class Emitter
         _stackVariableCount = 0;
 
         _builder.AddComment("Locals");
-        foreach (var local in method.Body.Variables)
+        // TODO: Init locals
+        for (var i = 0; i < method.Body.Variables.Count; i++)
         {
-            var variable = new CVariable(false, false, Utils.GetCType(local.Type), local.Name);
-            _variables.Add(variable);
+            var local = method.Body.Variables[i];
+            var name = string.IsNullOrEmpty(local.Name) ? $"local{i}" : local.Name;
+            var variable = new CVariable(false, false, Utils.GetCType(local.Type), name);
+
             _builder.AddVariable(variable);
+            _variables.Add(variable);
         }
 
         foreach (var instruction in method.Body.Instructions)
         {
             _builder.AddComment(instruction.ToString()!);
+
+            foreach (var label in labels)
+            {
+                if (label.Key == instruction.Offset) _builder.AddLabel(label.Value);
+            }
+
             switch (instruction.OpCode.Code)
             {
                 case Code.Nop: break;
@@ -71,17 +96,19 @@ public class Emitter
                 case Code.Ldarg_3: EmitLdarg(functionArguments[3]); break;
                 case Code.Call:
                 {
-                    var toCall = (MethodDef)instruction.Operand;
+                    var targetMethod = (MethodDef)instruction.Operand;
 
-                    var arguments = new CExpression[toCall.Parameters.Count];
+                    var arguments = new CExpression[targetMethod.Parameters.Count];
+                    // We're adding arguments in reverse order because we're popping from the stack (last to first)
                     for (var i = arguments.Length - 1; i >= 0; i--) arguments[i] = _stackVariables.Pop();
 
-                    var returnType = Utils.GetCType(toCall.ReturnType);
-                    var call = new CCall(Utils.GetSafeName(toCall.FullName), arguments);
+                    var returnType = Utils.GetCType(targetMethod.ReturnType);
+                    var call = new CCall(Utils.GetSafeName(targetMethod.FullName), arguments);
 
                     if (returnType != CType.Void)
                     {
                         var variable = new CVariable(true, false, returnType, NewStackVariableName());
+
                         _builder.AddVariable(variable, call);
                         _stackVariables.Push(variable);
                     } else _builder.AddCall(call);
@@ -146,6 +173,13 @@ public class Emitter
                 case Code.Stind_I2: EmitStind(CType.UInt16); break;
                 case Code.Stind_I4: EmitStind(CType.UInt32); break;
                 case Code.Stind_I8: EmitStind(CType.UInt64); break;
+                case Code.Br_S:
+                case Code.Br:
+                {
+                    var targetInstruction = (Instruction)instruction.Operand;
+                    _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
+                    break;
+                }
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");

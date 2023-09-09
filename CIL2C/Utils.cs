@@ -18,30 +18,28 @@ public static partial class Utils
     public static readonly CConstantInt Int7 = new(7);
     public static readonly CConstantInt Int8 = new(8);
 
-    public static CType GetCType(TypeSig type) => type.FullName switch
+    public static CType GetCType(TypeSig type)
     {
-        "System.Void" => CType.Void,
-        "System.SByte" => CType.Int8,
-        "System.Int16" => CType.Int16,
-        "System.Int32" => CType.Int32,
-        "System.Int64" => CType.Int64,
-        "System.Byte" => CType.UInt8,
-        "System.UInt16" => CType.UInt16,
-        "System.UInt32" => CType.UInt32,
-        "System.UInt64" => CType.UInt64,
-        "System.IntPtr" => CType.IntPtr,
-        "System.UIntPtr" => CType.UIntPtr,
-        "System.Void*" => CType.IntPtr,
-        "System.SByte*" => CType.IntPtr,
-        "System.Int16*" => CType.IntPtr,
-        "System.Int32*" => CType.IntPtr,
-        "System.Int64*" => CType.IntPtr,
-        "System.Byte*" => CType.IntPtr,
-        "System.UInt16*" => CType.IntPtr,
-        "System.UInt32*" => CType.IntPtr,
-        "System.UInt64*" => CType.IntPtr,
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type.FullName, null)
-    };
+        var name = type.FullName;
+
+        if (name.EndsWith('*')) return CType.IntPtr;
+
+        return name switch
+        {
+            "System.Void" => CType.Void,
+            "System.SByte" => CType.Int8,
+            "System.Int16" => CType.Int16,
+            "System.Int32" => CType.Int32,
+            "System.Int64" => CType.Int64,
+            "System.Byte" or "System.Boolean" => CType.UInt8,
+            "System.UInt16" => CType.UInt16,
+            "System.UInt32" => CType.UInt32,
+            "System.UInt64" => CType.UInt64,
+            "System.IntPtr" => CType.IntPtr,
+            "System.UIntPtr" => CType.UIntPtr,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type.FullName, null)
+        };
+    }
 
     public static CType GetAddFinalType(CType type1, CType type2)
     {

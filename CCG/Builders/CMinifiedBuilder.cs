@@ -50,6 +50,23 @@ public class CMinifiedBuilder : CBuilder
 
     #endregion
 
+    #region Labels
+
+    public override void AddLabel(string label)
+    {
+        _builder.Append(label);
+        _builder.Append(":;");
+    }
+
+    public override void GoToLabel(string label)
+    {
+        _builder.Append("goto ");
+        _builder.Append(label);
+        _builder.Append(';');
+    }
+
+    #endregion
+
     #region Variables
 
     public override void AddVariable(CVariable variable)

@@ -15,4 +15,10 @@ public class Settings
 
     [Option('m', "minify", Required = false, HelpText = "Minifies the C code.")]
     public bool Minify { get; set; }
+
+    [Option('c', "comments", Required = false, HelpText = "Toggles comments in the C code (disable if beautifying, else enable).")]
+    public bool ToggleComments { get; set; }
+
+    [Option('v', "verbose", Required = false, HelpText = "Enables verbose output.")]
+    public bool Verbose { get; set; }
 }

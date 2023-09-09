@@ -57,6 +57,27 @@ public class CBeautifiedBuilder : CBuilder
 
     #endregion
 
+    #region Labels
+
+    public override void AddLabel(string label)
+    {
+        // Adding a label is the only case where we don't apply our tabs, for style
+        _builder.Append(label);
+        _builder.Append(": ;");
+        _builder.AppendLine();
+    }
+
+    public override void GoToLabel(string label)
+    {
+        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        _builder.Append("goto ");
+        _builder.Append(label);
+        _builder.Append(';');
+        _builder.AppendLine();
+    }
+
+    #endregion
+
     #region Variables
 
     public override void AddVariable(CVariable variable)
@@ -66,7 +87,7 @@ public class CBeautifiedBuilder : CBuilder
         _builder.Append(CUtils.GetType(variable.Type));
         if (variable.IsPointer) _builder.Append(" *");
         _builder.Append(' ');
-        _builder.Append(variable.ToString());
+        _builder.Append(variable.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
     }
@@ -78,9 +99,9 @@ public class CBeautifiedBuilder : CBuilder
         _builder.Append(CUtils.GetType(variable.Type));
         if (variable.IsPointer) _builder.Append(" *");
         _builder.Append(' ');
-        _builder.Append(variable.ToString());
+        _builder.Append(variable.ToStringBeautified());
         _builder.Append(" = ");
-        _builder.Append(value.ToString());
+        _builder.Append(value.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
     }
@@ -92,9 +113,9 @@ public class CBeautifiedBuilder : CBuilder
     public override void SetValueExpression(CExpression expression, CExpression value)
     {
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append(expression.ToString());
+        _builder.Append(expression.ToStringBeautified());
         _builder.Append(" = ");
-        _builder.Append(value.ToString());
+        _builder.Append(value.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
     }
@@ -142,7 +163,7 @@ public class CBeautifiedBuilder : CBuilder
     public override void AddCall(CCall call)
     {
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append(call.ToString());
+        _builder.Append(call.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
     }
@@ -161,7 +182,7 @@ public class CBeautifiedBuilder : CBuilder
     {
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("return ");
-        _builder.Append(expression.ToString());
+        _builder.Append(expression.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
     }

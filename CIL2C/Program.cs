@@ -9,7 +9,7 @@ public static class Program
     {
         var settings = Parser.Default.ParseArguments<Settings>(args).Value;
         var module = ModuleDefMD.Load(settings.InputFile);
-        var emitter = new Emitter(settings.Minify);
+        var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
 
         emitter.Emit(module
             .Types.First(x => x.Name == module.EntryPoint.DeclaringType.Name)
@@ -18,8 +18,6 @@ public static class Program
         emitter.Emit(module.EntryPoint);
         emitter.EmitMainFunction(module.EntryPoint);
 
-        var code = emitter.ToString();
-
-        File.WriteAllText(settings.OutputFile, code);
+        File.WriteAllText(settings.OutputFile, emitter.ToString());
     }
 }
