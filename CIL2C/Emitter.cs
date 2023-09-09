@@ -34,7 +34,13 @@ public class Emitter
         _builder.AddFunction(Utils.GetCType(method.ReturnType), Utils.GetSafeName(method.FullName));
         _builder.BeginBlock();
 
+        _variables.Clear();
         _variables.EnsureCapacity(method.Body.Variables.Count);
+
+        _stackVariables.Clear();
+        _stackVariables.EnsureCapacity(method.Body.MaxStack);
+
+        _stackVariableCount = 0;
 
         _builder.AddComment("Locals");
         foreach (var local in method.Body.Variables)
@@ -56,10 +62,29 @@ public class Emitter
                     _stackVariables.Push(value);
                     break;
                 }
+                case Code.Call:
+                {
+                    // TODO: Arguments
+                    var toCall = (MethodDef)instruction.Operand;
+                    var returnType = Utils.GetCType(toCall.ReturnType);
+                    var call = new CCall(Utils.GetSafeName(toCall.FullName));
+
+                    if (returnType != CType.Void)
+                    {
+                        var variable = new CVariable(true, false, returnType, NewStackVariableName());
+                        _builder.AddVariable(variable, call);
+                        _stackVariables.Push(variable);
+                    } else _builder.AddCall(call);
+
+                    break;
+                }
                 case Code.Ret:
                 {
-                    // TODO: Check for a return value
-                    _builder.AddReturn();
+                    if (_stackVariables.Count > 0)
+                    {
+                        var value = _stackVariables.Pop();
+                        _builder.AddReturn(value);
+                    } else _builder.AddReturn();
                     break;
                 }
                 case Code.Add:

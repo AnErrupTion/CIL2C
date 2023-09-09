@@ -11,6 +11,10 @@ public static class Program
         var module = ModuleDefMD.Load(settings.InputFile);
         var emitter = new Emitter(settings.Minify);
 
+        emitter.Emit(module
+            .Types.First(x => x.Name == module.EntryPoint.DeclaringType.Name)
+            .Methods.First(x => x.Name == "GetAChar")
+        );
         emitter.Emit(module.EntryPoint);
         emitter.EmitMainFunction(module.EntryPoint);
 
