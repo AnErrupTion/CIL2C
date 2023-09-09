@@ -64,6 +64,7 @@ public class Emitter
             {
                 case Code.Nop: break;
                 case Code.Dup: _stackVariables.Push(_stackVariables.Peek()); break;
+                case Code.Ldarg: EmitLdarg(functionArguments[Convert.ToUInt16(instruction.Operand)]); break;
                 case Code.Ldarg_0: EmitLdarg(functionArguments[0]); break;
                 case Code.Ldarg_1: EmitLdarg(functionArguments[1]); break;
                 case Code.Ldarg_2: EmitLdarg(functionArguments[2]); break;
@@ -108,6 +109,8 @@ public class Emitter
                     _stackVariables.Push(variable);
                     break;
                 }
+                case Code.Ldc_I4_S:
+                case Code.Ldc_I4: EmitLdcI4(new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
                 case Code.Ldc_I4_M1: EmitLdcI4(Utils.IntM1); break;
                 case Code.Ldc_I4_0: EmitLdcI4(Utils.Int0); break;
                 case Code.Ldc_I4_1: EmitLdcI4(Utils.Int1); break;
@@ -118,8 +121,6 @@ public class Emitter
                 case Code.Ldc_I4_6: EmitLdcI4(Utils.Int6); break;
                 case Code.Ldc_I4_7: EmitLdcI4(Utils.Int7); break;
                 case Code.Ldc_I4_8: EmitLdcI4(Utils.Int8); break;
-                case Code.Ldc_I4_S:
-                case Code.Ldc_I4: EmitLdcI4(new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
                 case Code.Conv_I: EmitConv(CType.IntPtr); break;
                 case Code.Conv_I1: EmitConv(CType.Int8); break;
                 case Code.Conv_I2: EmitConv(CType.Int16); break;
@@ -130,23 +131,21 @@ public class Emitter
                 case Code.Conv_U2: EmitConv(CType.UInt16); break;
                 case Code.Conv_U4: EmitConv(CType.UInt32); break;
                 case Code.Conv_U8: EmitConv(CType.UInt64); break;
+                case Code.Ldloc: EmitLdloc((ushort)((Local)instruction.Operand).Index); break;
                 case Code.Ldloc_0: EmitLdloc(0); break;
                 case Code.Ldloc_1: EmitLdloc(1); break;
                 case Code.Ldloc_2: EmitLdloc(2); break;
                 case Code.Ldloc_3: EmitLdloc(3); break;
+                case Code.Stloc: EmitStloc((ushort)((Local)instruction.Operand).Index); break;
                 case Code.Stloc_0: EmitStloc(0); break;
                 case Code.Stloc_1: EmitStloc(1); break;
                 case Code.Stloc_2: EmitStloc(2); break;
                 case Code.Stloc_3: EmitStloc(3); break;
-                case Code.Stind_I1:
-                {
-                    var value = _stackVariables.Pop();
-                    var address = _stackVariables.Pop();
-                    var pointer = new CPointer(new CCast(false, true, CType.UInt8, address));
-
-                    _builder.SetValueExpression(pointer, value);
-                    break;
-                }
+                // The documentation says Stind operands are signed, but that makes no sense so we're making them unsigned
+                case Code.Stind_I1: EmitStind(CType.UInt8); break;
+                case Code.Stind_I2: EmitStind(CType.UInt16); break;
+                case Code.Stind_I4: EmitStind(CType.UInt32); break;
+                case Code.Stind_I8: EmitStind(CType.UInt64); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -214,6 +213,15 @@ public class Emitter
 
         _builder.AddVariable(variable, new CCast(true, false, variable.Type, value));
         _stackVariables.Push(variable);
+    }
+
+    private void EmitStind(CType type)
+    {
+        var value = _stackVariables.Pop();
+        var address = _stackVariables.Pop();
+        var pointer = new CPointer(new CCast(false, true, type, address));
+
+        _builder.SetValueExpression(pointer, value);
     }
 
     private string NewStackVariableName() => $"stack{_stackVariableCount++}";
