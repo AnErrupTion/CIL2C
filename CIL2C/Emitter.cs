@@ -19,6 +19,21 @@ public class Emitter
 
     public override string? ToString() => _builder.ToString();
 
+    public void EmitPrototype(MethodDef method, out CType type, out string safeName, out CVariable[] arguments)
+    {
+        type = Utils.GetCType(method.ReturnType);
+        safeName = Utils.GetSafeName(method.FullName);
+        arguments = new CVariable[method.Parameters.Count];
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var argument = method.Parameters[i];
+            arguments[i] = new CVariable(false, false, Utils.GetCType(argument.Type), argument.Name);
+        }
+
+        _builder.AddFunction(type, safeName, true, arguments);
+    }
+
     /*
      * This method emits a CIL method into C. Let's see how it works:
      *  1. It creates a C function with the safe name, the return type and the arguments of the method.
@@ -33,15 +48,8 @@ public class Emitter
      * be the CIL evaluation stack. At runtime (so in the C code), those stack values are actually constant variables,
      * which allows them to be more easily and more efficiently optimized by the C compiler.
      */
-    public void Emit(MethodDef method)
+    public void Emit(MethodDef method, CType functionType, string safeName, CVariable[] functionArguments)
     {
-        var functionArguments = new CVariable[method.Parameters.Count];
-        for (var i = 0; i < functionArguments.Length; i++)
-        {
-            var argument = method.Parameters[i];
-            functionArguments[i] = new CVariable(false, false, Utils.GetCType(argument.Type), argument.Name);
-        }
-
         var labels = new Dictionary<uint, string>();
         foreach (var instruction in method.Body.Instructions)
         {
@@ -53,7 +61,7 @@ public class Emitter
             labels.Add(targetInstruction.Offset, label);
         }
 
-        _builder.AddFunction(Utils.GetCType(method.ReturnType), Utils.GetSafeName(method.FullName), functionArguments);
+        _builder.AddFunction(functionType, safeName, false, functionArguments);
         _builder.BeginBlock();
 
         _variables.Clear();
@@ -192,15 +200,20 @@ public class Emitter
     }
 
     /*
-     * TODO: Call static constructors
      * This method emits the C entry point of the program. It should call all static constructors, then call the CIL
      * program's entry point.
      */
-    public void EmitMainFunction(MethodDef entryPoint)
+    public void EmitMainFunction(MethodDef entryPoint, List<MethodDef> staticConstructors)
     {
-        _builder.AddFunction(CType.Int32, "main");
+        _builder.AddFunction(CType.Int32, "main", false);
         _builder.BeginBlock();
+
+        // Call static constructors
+        foreach (var method in staticConstructors) _builder.AddCall(new CCall(Utils.GetSafeName(method.FullName)));
+
+        // Call entry point
         _builder.AddCall(new CCall(Utils.GetSafeName(entryPoint.FullName)));
+
         _builder.AddReturn(Utils.Int0);
         _builder.EndBlock(true);
     }

@@ -124,7 +124,7 @@ public class CBeautifiedBuilder : CBuilder
 
     #region Functions
 
-    public override void AddFunction(CType returnType, string name, params CVariable[] args)
+    public override void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args)
     {
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Function name is null or empty.", nameof(name));
         if (name.Contains(' ')) throw new ArgumentException("Function name contains at least one space.", nameof(name));
@@ -152,7 +152,7 @@ public class CBeautifiedBuilder : CBuilder
             }
         } else _builder.Append("void");
 
-        _builder.Append(')');
+        if (isPrototype) _builder.Append(");"); else _builder.Append(')');
         _builder.AppendLine();
     }
 

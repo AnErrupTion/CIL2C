@@ -5,7 +5,7 @@ using dnlib.DotNet;
 
 namespace CIL2C;
 
-public static partial class Utils
+internal static partial class Utils
 {
     public static readonly CConstantInt IntM1 = new(-1);
     public static readonly CConstantInt Int0 = new(0);
