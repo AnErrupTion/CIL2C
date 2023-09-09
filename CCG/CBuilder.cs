@@ -26,7 +26,7 @@ public abstract class CBuilder
 
     public abstract void SetValueExpression(CExpression expression, CExpression value);
 
-    public abstract void AddFunction(CType returnType, string name, params CFunctionArgument[] args);
+    public abstract void AddFunction(CType returnType, string name, params CVariable[] args);
 
     public abstract void AddCall(CCall call);
 

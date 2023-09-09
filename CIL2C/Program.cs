@@ -13,7 +13,7 @@ public static class Program
 
         emitter.Emit(module
             .Types.First(x => x.Name == module.EntryPoint.DeclaringType.Name)
-            .Methods.First(x => x.Name == "GetAChar")
+            .Methods.First(x => x.Name == "Add")
         );
         emitter.Emit(module.EntryPoint);
         emitter.EmitMainFunction(module.EntryPoint);

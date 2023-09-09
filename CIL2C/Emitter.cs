@@ -31,7 +31,14 @@ public class Emitter
      */
     public void Emit(MethodDef method)
     {
-        _builder.AddFunction(Utils.GetCType(method.ReturnType), Utils.GetSafeName(method.FullName));
+        var functionArguments = new CVariable[method.Parameters.Count];
+        for (var i = 0; i < functionArguments.Length; i++)
+        {
+            var argument = method.Parameters[i];
+            functionArguments[i] = new CVariable(false, false, Utils.GetCType(argument.Type), argument.Name);
+        }
+
+        _builder.AddFunction(Utils.GetCType(method.ReturnType), Utils.GetSafeName(method.FullName), functionArguments);
         _builder.BeginBlock();
 
         _variables.Clear();
@@ -52,22 +59,24 @@ public class Emitter
 
         foreach (var instruction in method.Body.Instructions)
         {
-            _builder.AddComment(instruction.OpCode.Name);
+            _builder.AddComment(instruction.ToString()!);
             switch (instruction.OpCode.Code)
             {
                 case Code.Nop: break;
-                case Code.Dup:
-                {
-                    var value = _stackVariables.Peek();
-                    _stackVariables.Push(value);
-                    break;
-                }
+                case Code.Dup: _stackVariables.Push(_stackVariables.Peek()); break;
+                case Code.Ldarg_0: EmitLdarg(functionArguments[0]); break;
+                case Code.Ldarg_1: EmitLdarg(functionArguments[1]); break;
+                case Code.Ldarg_2: EmitLdarg(functionArguments[2]); break;
+                case Code.Ldarg_3: EmitLdarg(functionArguments[3]); break;
                 case Code.Call:
                 {
-                    // TODO: Arguments
                     var toCall = (MethodDef)instruction.Operand;
+
+                    var arguments = new CExpression[toCall.Parameters.Count];
+                    for (var i = arguments.Length - 1; i >= 0; i--) arguments[i] = _stackVariables.Pop();
+
                     var returnType = Utils.GetCType(toCall.ReturnType);
-                    var call = new CCall(Utils.GetSafeName(toCall.FullName));
+                    var call = new CCall(Utils.GetSafeName(toCall.FullName), arguments);
 
                     if (returnType != CType.Void)
                     {
@@ -75,7 +84,6 @@ public class Emitter
                         _builder.AddVariable(variable, call);
                         _stackVariables.Push(variable);
                     } else _builder.AddCall(call);
-
                     break;
                 }
                 case Code.Ret:
@@ -91,9 +99,11 @@ public class Emitter
                 {
                     var value2 = _stackVariables.Pop();
                     var value1 = _stackVariables.Pop();
+                    
                     var type = Utils.GetAddFinalType(value1.Type, value2.Type);
                     var variable = new CVariable(true, false, type, NewStackVariableName());
                     var result = new CCast(true, false, type, new CBinaryOperation(value1, CBinaryOperator.Add, value2));
+
                     _builder.AddVariable(variable, result);
                     _stackVariables.Push(variable);
                     break;
@@ -110,14 +120,16 @@ public class Emitter
                 case Code.Ldc_I4_8: EmitLdcI4(Utils.Int8); break;
                 case Code.Ldc_I4_S:
                 case Code.Ldc_I4: EmitLdcI4(new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
-                case Code.Conv_I:
-                {
-                    var value = _stackVariables.Pop();
-                    var variable = new CVariable(true, false, CType.IntPtr, NewStackVariableName());
-                    _builder.AddVariable(variable, new CCast(true, false, variable.Type, value));
-                    _stackVariables.Push(variable);
-                    break;
-                }
+                case Code.Conv_I: EmitConv(CType.IntPtr); break;
+                case Code.Conv_I1: EmitConv(CType.Int8); break;
+                case Code.Conv_I2: EmitConv(CType.Int16); break;
+                case Code.Conv_I4: EmitConv(CType.Int32); break;
+                case Code.Conv_I8: EmitConv(CType.Int64); break;
+                case Code.Conv_U: EmitConv(CType.UIntPtr); break;
+                case Code.Conv_U1: EmitConv(CType.UInt8); break;
+                case Code.Conv_U2: EmitConv(CType.UInt16); break;
+                case Code.Conv_U4: EmitConv(CType.UInt32); break;
+                case Code.Conv_U8: EmitConv(CType.UInt64); break;
                 case Code.Ldloc_0: EmitLdloc(0); break;
                 case Code.Ldloc_1: EmitLdloc(1); break;
                 case Code.Ldloc_2: EmitLdloc(2); break;
@@ -131,6 +143,7 @@ public class Emitter
                     var value = _stackVariables.Pop();
                     var address = _stackVariables.Pop();
                     var pointer = new CPointer(new CCast(false, true, CType.UInt8, address));
+
                     _builder.SetValueExpression(pointer, value);
                     break;
                 }
@@ -164,6 +177,7 @@ public class Emitter
     private void EmitLdcI4(CConstantInt value)
     {
         var variable = new CVariable(true, false, CType.Int32, NewStackVariableName());
+
         _builder.AddVariable(variable, value);
         _stackVariables.Push(variable);
     }
@@ -172,7 +186,16 @@ public class Emitter
     {
         var localVariable = _variables[index];
         var variable = new CVariable(true, localVariable.IsPointer, localVariable.Type, NewStackVariableName());
+
         _builder.AddVariable(variable, localVariable);
+        _stackVariables.Push(variable);
+    }
+
+    private void EmitLdarg(CVariable argument)
+    {
+        var variable = new CVariable(true, argument.IsPointer, argument.Type, NewStackVariableName());
+
+        _builder.AddVariable(variable, argument);
         _stackVariables.Push(variable);
     }
 
@@ -180,7 +203,17 @@ public class Emitter
     {
         var variable = _variables[index];
         var value = _stackVariables.Pop();
+
         _builder.SetValueExpression(variable, value);
+    }
+
+    private void EmitConv(CType type)
+    {
+        var value = _stackVariables.Pop();
+        var variable = new CVariable(true, false, type, NewStackVariableName());
+
+        _builder.AddVariable(variable, new CCast(true, false, variable.Type, value));
+        _stackVariables.Push(variable);
     }
 
     private string NewStackVariableName() => $"stack{_stackVariableCount++}";

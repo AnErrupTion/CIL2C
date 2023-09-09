@@ -11,18 +11,22 @@ public sealed class CPointer : CExpression
     public override string ToString()
     {
         var builder = new StringBuilder();
+
         builder.Append("*(");
         builder.Append(Value.ToString());
         builder.Append(')');
+
         return builder.ToString();
     }
 
     public override string ToStringBeautified()
     {
         var builder = new StringBuilder();
+
         builder.Append("*(");
         builder.Append(Value.ToStringBeautified());
         builder.Append(')');
+
         return builder.ToString();
     }
 }

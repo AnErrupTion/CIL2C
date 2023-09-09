@@ -17,15 +17,16 @@ public sealed class CCall : CExpression
     {
         var builder = new StringBuilder();
         builder.Append(FunctionName);
-        if (Arguments.Length > 0)
+        builder.Append('(');
+
+        for (var i = 0; i < Arguments.Length; i++)
         {
-            for (var i = 0; i < Arguments.Length; i++)
-            {
-                var argument = Arguments[i];
-                builder.Append(argument.ToString());
-                if (i != Arguments.Length - 1) builder.Append(',');
-            }
-        } else builder.Append("()");
+            var argument = Arguments[i];
+            builder.Append(argument.ToString());
+            if (i != Arguments.Length - 1) builder.Append(',');
+        }
+
+        builder.Append(')');
         return builder.ToString();
     }
 
@@ -33,15 +34,16 @@ public sealed class CCall : CExpression
     {
         var builder = new StringBuilder();
         builder.Append(FunctionName);
-        if (Arguments.Length > 0)
+        builder.Append('(');
+
+        for (var i = 0; i < Arguments.Length; i++)
         {
-            for (var i = 0; i < Arguments.Length; i++)
-            {
-                var argument = Arguments[i];
-                builder.Append(argument.ToStringBeautified());
-                if (i != Arguments.Length - 1) builder.Append(", ");
-            }
-        } else builder.Append("()");
+            var argument = Arguments[i];
+            builder.Append(argument.ToStringBeautified());
+            if (i != Arguments.Length - 1) builder.Append(", ");
+        }
+
+        builder.Append(')');
         return builder.ToString();
     }
 }

@@ -20,24 +20,28 @@ public sealed class CCast : CExpression
     public override string ToString()
     {
         var builder = new StringBuilder();
+
         builder.Append('(');
         if (IsConst) builder.Append("const ");
         builder.Append(CUtils.GetType(Type));
         if (IsPointer) builder.Append('*');
         builder.Append(')');
         builder.Append(Value.ToString());
+
         return builder.ToString();
     }
 
     public override string ToStringBeautified()
     {
         var builder = new StringBuilder();
+
         builder.Append('(');
         if (IsConst) builder.Append("const ");
         builder.Append(CUtils.GetType(Type));
         if (IsPointer) builder.Append(" *");
         builder.Append(") ");
         builder.Append(Value.ToStringBeautified());
+
         return builder.ToString();
     }
 }

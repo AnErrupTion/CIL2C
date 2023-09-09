@@ -90,7 +90,7 @@ public class CMinifiedBuilder : CBuilder
 
     #region Functions
 
-    public override void AddFunction(CType returnType, string name, params CFunctionArgument[] args)
+    public override void AddFunction(CType returnType, string name, params CVariable[] args)
     {
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Function name is null or empty.", nameof(name));
         if (name.Contains(' ')) throw new ArgumentException("Function name contains at least one space.", nameof(name));
@@ -105,9 +105,11 @@ public class CMinifiedBuilder : CBuilder
             for (var i = 0; i < args.Length; i++)
             {
                 var arg = args[i];
+                if (arg.IsConst) _builder.Append("const ");
                 _builder.Append(CUtils.GetType(arg.Type));
+                if (arg.IsPointer) _builder.Append('*');
                 _builder.Append(' ');
-                _builder.Append(name);
+                _builder.Append(arg.Name);
 
                 if (i == args.Length - 1) continue;
 

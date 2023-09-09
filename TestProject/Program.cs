@@ -7,10 +7,10 @@ public static class Program
         unsafe
         {
             var buffer = (byte*)0xB8000;
-            *buffer++ = GetAChar();
+            *buffer++ = Add(64, 1);
             *buffer = 15;
         }
     }
 
-    private static byte GetAChar() => 65;
+    private static byte Add(byte a, byte b) => (byte)(a + b);
 }

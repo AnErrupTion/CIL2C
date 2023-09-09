@@ -18,6 +18,7 @@ public sealed class CBinaryOperation : CExpression
     public override string ToString()
     {
         var builder = new StringBuilder();
+
         builder.Append('(');
         builder.Append(Left.ToString());
         builder.Append(')');
@@ -25,12 +26,14 @@ public sealed class CBinaryOperation : CExpression
         builder.Append('(');
         builder.Append(Right.ToString());
         builder.Append(')');
+
         return builder.ToString();
     }
 
     public override string ToStringBeautified()
     {
         var builder = new StringBuilder();
+
         builder.Append('(');
         builder.Append(Left.ToStringBeautified());
         builder.Append(") ");
@@ -38,6 +41,7 @@ public sealed class CBinaryOperation : CExpression
         builder.Append(" (");
         builder.Append(Right.ToStringBeautified());
         builder.Append(')');
+
         return builder.ToString();
     }
 }
