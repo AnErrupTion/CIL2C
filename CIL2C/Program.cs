@@ -38,12 +38,15 @@ public static class Program
 
         // First, emit the types (and load all fields and methods on the way)
         var cTypes = new ConcurrentDictionary<string, CType>();
+        builder.AddComment("Types");
 
         Parallel.ForEach(module.Types, parallelOptions, type =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting type: {type.FullName}");
 
             var cBuilder = builder.Clone();
+            cBuilder.AddComment(type.FullName);
+
             var cType = Emitter.EmitType(ref cBuilder, type, out var signature);
             cTypes.TryAdd(type.FullName, cType);
 
@@ -66,11 +69,15 @@ public static class Program
         if (settings.Verbose) Console.WriteLine($"Emitted {module.Types.Count} types, loaded {fields.Count} fields and {methods.Count} methods.");
 
         // Then, emit the method definitions
+        builder.AddComment("Method definitions");
+
         Parallel.ForEach(methods, parallelOptions, method =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method definition: {method.FullName}");
 
             var cBuilder = builder.Clone();
+            cBuilder.AddComment(method.FullName);
+
             Emitter.EmitMethodDefinition(ref cBuilder, ref cTypes, method);
 
             lock (builder) builder.Append(cBuilder);
@@ -80,12 +87,15 @@ public static class Program
 
         // After that, emit the fields
         var cFields = new ConcurrentDictionary<string, CVariable>();
+        builder.AddComment("Fields");
 
         Parallel.ForEach(fields, parallelOptions, field =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting field: {field.FullName}");
 
             var cBuilder = builder.Clone();
+            cBuilder.AddComment(field.FullName);
+
             var variable = Emitter.EmitField(ref cBuilder, ref cTypes, field);
             cFields.TryAdd(field.FullName, variable);
 
@@ -95,22 +105,28 @@ public static class Program
         if (settings.Verbose) Console.WriteLine($"Emitted {fields.Count} fields.");
 
         // And finally, emit the actual method bodies
+        builder.AddComment("Methods");
+
         Parallel.ForEach(methods, parallelOptions, method =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method: {method.FullName}.");
 
             var cBuilder = builder.Clone();
+            cBuilder.AddComment(method.FullName);
+
             Emitter.EmitMethod(ref cBuilder, ref cTypes, ref cFields, method);
 
             lock (builder) builder.Append(cBuilder);
         });
 
         if (settings.Verbose) Console.WriteLine("Emitting main function.");
+
+        builder.AddComment("Entry point");
         Emitter.EmitMainFunction(ref builder, module.EntryPoint, ref staticConstructors);
+
         if (settings.Verbose) Console.WriteLine("Emitted main function.");
 
         stopwatch.Stop();
-
         if (settings.Verbose) Console.WriteLine($"Took {stopwatch.Elapsed.Milliseconds} ms ({stopwatch.Elapsed.Seconds} s).");
 
         if (settings.Verbose) Console.WriteLine("Saving file.");
