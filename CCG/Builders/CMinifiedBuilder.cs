@@ -10,7 +10,10 @@ public class CMinifiedBuilder : CBuilder
     public override string ToString() => _builder.ToString();
 
     public CMinifiedBuilder(bool enableComments = false) : base(enableComments)
-        => _builder.AppendLine("#include <stdint.h>");
+    {
+        _builder.AppendLine("#include <stdint.h>");
+        _builder.AppendLine("#include <stdbool.h>");
+    }
 
     #region Comments
 
@@ -146,6 +149,20 @@ public class CMinifiedBuilder : CBuilder
         _builder.Append(call.ToString());
         _builder.Append(';');
     }
+
+    #endregion
+
+    #region Conditions
+
+    public override void AddIf(CCompareOperation operation)
+    {
+        _builder.Append("if(");
+        _builder.Append(operation.ToStringBeautified());
+        _builder.Append(')');
+        _builder.AppendLine();
+    }
+
+    public override void AddElse() => _builder.AppendLine("else");
 
     #endregion
 

@@ -18,6 +18,9 @@ internal static partial class Utils
     public static readonly CConstantInt Int7 = new(7);
     public static readonly CConstantInt Int8 = new(8);
 
+    public static readonly CConstantBool BoolTrue = new(true);
+    public static readonly CConstantBool BoolFalse = new(false);
+
     public static CType GetCType(TypeSig type)
     {
         var name = type.FullName;
@@ -27,11 +30,12 @@ internal static partial class Utils
         return name switch
         {
             "System.Void" => CType.Void,
+            "System.Boolean" => CType.Boolean,
             "System.SByte" => CType.Int8,
             "System.Int16" => CType.Int16,
             "System.Int32" => CType.Int32,
             "System.Int64" => CType.Int64,
-            "System.Byte" or "System.Boolean" => CType.UInt8,
+            "System.Byte" => CType.UInt8,
             "System.UInt16" => CType.UInt16,
             "System.UInt32" => CType.UInt32,
             "System.UInt64" => CType.UInt64,

@@ -3,6 +3,7 @@ namespace CCG;
 public enum CType
 {
     Void,
+    Boolean,
     Int8,
     Int16,
     Int32,

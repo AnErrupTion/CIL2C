@@ -10,7 +10,10 @@ public class CBeautifiedBuilder : CBuilder
     private uint _tabs;
 
     public CBeautifiedBuilder(bool enableComments = true) : base(enableComments)
-        => _builder.AppendLine("#include <stdint.h>");
+    {
+        _builder.AppendLine("#include <stdint.h>");
+        _builder.AppendLine("#include <stdbool.h>");
+    }
 
     public override string ToString() => _builder.ToString();
 
@@ -166,6 +169,25 @@ public class CBeautifiedBuilder : CBuilder
         _builder.Append(call.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
+    }
+
+    #endregion
+
+    #region Conditions
+
+    public override void AddIf(CCompareOperation operation)
+    {
+        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        _builder.Append("if (");
+        _builder.Append(operation.ToStringBeautified());
+        _builder.Append(')');
+        _builder.AppendLine();
+    }
+
+    public override void AddElse()
+    {
+        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        _builder.AppendLine("else");
     }
 
     #endregion

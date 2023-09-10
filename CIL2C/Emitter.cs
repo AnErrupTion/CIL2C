@@ -181,6 +181,11 @@ public class Emitter
                 case Code.Stind_I2: EmitStind(CType.UInt16); break;
                 case Code.Stind_I4: EmitStind(CType.UInt32); break;
                 case Code.Stind_I8: EmitStind(CType.UInt64); break;
+                case Code.Ceq: EmitCmp(CCompareOperator.Equal); break;
+                case Code.Cgt_Un:
+                case Code.Cgt: EmitCmp(CCompareOperator.Above); break;
+                case Code.Clt_Un:
+                case Code.Clt: EmitCmp(CCompareOperator.Below); break;
                 case Code.Br_S:
                 case Code.Br:
                 {
@@ -188,6 +193,10 @@ public class Emitter
                     _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
                     break;
                 }
+                case Code.Brtrue_S:
+                case Code.Brtrue: EmitCondBr((Instruction)instruction.Operand, Utils.BoolTrue); break;
+                case Code.Brfalse_S:
+                case Code.Brfalse: EmitCondBr((Instruction)instruction.Operand, Utils.BoolFalse); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -269,6 +278,28 @@ public class Emitter
         var pointer = new CPointer(new CCast(false, true, type, address));
 
         _builder.SetValueExpression(pointer, value);
+    }
+
+    private void EmitCondBr(Instruction targetInstruction, CExpression compareValue)
+    {
+        var value = _stackVariables.Pop();
+        var compare = new CCompareOperation(value, CCompareOperator.Equal, compareValue);
+
+        _builder.AddIf(compare);
+        _builder.BeginBlock();
+        _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
+        _builder.EndBlock(false);
+    }
+
+    private void EmitCmp(CCompareOperator op)
+    {
+        var value2 = _stackVariables.Pop();
+        var value1 = _stackVariables.Pop();
+        var compare = new CCompareOperation(value1, op, value2);
+        var variable = new CVariable(true, false, CType.Boolean, NewStackVariableName());
+
+        _builder.AddVariable(variable, compare);
+        _stackVariables.Push(variable);
     }
 
     private string NewStackVariableName() => $"stack{_stackVariableCount++}";

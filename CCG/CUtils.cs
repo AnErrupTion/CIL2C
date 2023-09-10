@@ -5,6 +5,7 @@ public static class CUtils
     public static string GetType(CType type) => type switch
     {
         CType.Void => "void",
+        CType.Boolean => "bool",
         CType.Int8 => "int8_t",
         CType.Int16 => "int16_t",
         CType.Int32 => "int32_t",
@@ -28,6 +29,17 @@ public static class CUtils
         CBinaryOperator.And => '&',
         CBinaryOperator.Or => '|',
         CBinaryOperator.Xor => '^',
+        _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
+    };
+
+    public static string GetCompareOperator(CCompareOperator op) => op switch
+    {
+        CCompareOperator.Equal => "==",
+        CCompareOperator.NotEqual => "!=",
+        CCompareOperator.BelowOrEqual => "<=",
+        CCompareOperator.AboveOrEqual => ">=",
+        CCompareOperator.Below => "<",
+        CCompareOperator.Above => ">",
         _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
     };
 }

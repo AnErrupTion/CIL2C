@@ -20,7 +20,6 @@ public static class Program
         foreach (var type in module.Types)
         {
             var methods = new List<Tuple<MethodDef, CType, string, CVariable[]>>();
-
             foreach (var method in type.Methods)
             {
                 if (!method.IsStaticConstructor &&

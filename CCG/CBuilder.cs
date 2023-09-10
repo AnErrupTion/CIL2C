@@ -32,6 +32,9 @@ public abstract class CBuilder
 
     public abstract void AddCall(CCall call);
 
+    public abstract void AddIf(CCompareOperation operation);
+    public abstract void AddElse();
+
     public abstract void AddReturn();
     public abstract void AddReturn(CExpression expression);
 }

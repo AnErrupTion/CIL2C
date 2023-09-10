@@ -7,8 +7,11 @@ public static class Program
         unsafe
         {
             var buffer = (byte*)0xB8000;
-            *buffer++ = Add(64, 1);
-            *buffer = 15;
+            for (byte i = 64; i <= 68; i++)
+            {
+                *buffer++ = Add(i, 1);
+                *buffer++ = 15;
+            }
         }
 
         while (true)
