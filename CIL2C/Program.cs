@@ -18,7 +18,7 @@ public static class Program
         var staticConstructors = new List<MethodDef>();
         var methods = new List<Tuple<MethodDef, CType, string, CVariable[]>>();
 
-        // First, emit the types, fields and method definitions
+        // First, emit the types and fields
         foreach (var type in module.Types)
         {
             emitter.EmitType(type, out var signature);
@@ -28,7 +28,11 @@ public static class Program
                 if (type.IsEnum && field.FieldType.FullName == signature.FullName) continue;
                 if (field.IsStatic) emitter.EmitField(field);
             }
+        }
 
+        // Then, emit the method definitions
+        foreach (var type in module.Types)
+        {
             foreach (var method in type.Methods)
             {
                 if (!method.IsStaticConstructor && method.DeclaringType.FullName != module.EntryPoint.DeclaringType.FullName) continue;
@@ -41,7 +45,7 @@ public static class Program
             }
         }
 
-        // And then, emit the actual method bodies
+        // Finally, emit the actual method bodies
         foreach (var method in methods)
         {
             if (settings.Verbose) Console.WriteLine($"Emitting code: {method.Item1.FullName}");
