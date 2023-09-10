@@ -131,19 +131,13 @@ public class Emitter
                     } else _builder.AddReturn();
                     break;
                 }
-                case Code.Add:
-                {
-                    var value2 = _stackVariables.Pop();
-                    var value1 = _stackVariables.Pop();
-                    
-                    var type = Utils.GetAddFinalType(value1.Type, value2.Type);
-                    var variable = new CVariable(true, false, type, NewStackVariableName());
-                    var result = new CCast(true, false, type, new CBinaryOperation(value1, CBinaryOperator.Add, value2));
-
-                    _builder.AddVariable(variable, result);
-                    _stackVariables.Push(variable);
-                    break;
-                }
+                case Code.Add: EmitBinaryOperation(CBinaryOperator.Add); break;
+                case Code.Sub: EmitBinaryOperation(CBinaryOperator.Sub); break;
+                case Code.Mul: EmitBinaryOperation(CBinaryOperator.Mul); break;
+                case Code.Div_Un:
+                case Code.Div: EmitBinaryOperation(CBinaryOperator.Div); break;
+                case Code.Rem_Un:
+                case Code.Rem: EmitBinaryOperation(CBinaryOperator.Mod); break;
                 case Code.Ldc_I4_S:
                 case Code.Ldc_I4: EmitLdcI4(new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
                 case Code.Ldc_I4_M1: EmitLdcI4(Utils.IntM1); break;
@@ -228,6 +222,31 @@ public class Emitter
     }
 
     #region Helpers
+
+    private void EmitBinaryOperation(CBinaryOperator op)
+    {
+        var value2 = _stackVariables.Pop();
+        var value1 = _stackVariables.Pop();
+
+        var type = op switch
+        {
+            CBinaryOperator.Add
+                or CBinaryOperator.Sub
+                or CBinaryOperator.Mul
+                or CBinaryOperator.Div
+                or CBinaryOperator.Mod
+                => Utils.GetBinaryNumericOperationType(value1.Type, value2.Type),
+            CBinaryOperator.And => throw new Exception(),
+            CBinaryOperator.Or => throw new Exception(),
+            CBinaryOperator.Xor => throw new Exception(),
+            _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
+        };
+        var variable = new CVariable(true, false, type, NewStackVariableName());
+        var result = new CCast(true, false, type, new CBinaryOperation(value1, op, value2));
+
+        _builder.AddVariable(variable, result);
+        _stackVariables.Push(variable);
+    }
 
     private void EmitLdcI4(CConstantInt value)
     {

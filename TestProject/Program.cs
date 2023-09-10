@@ -9,7 +9,7 @@ public static class Program
             var buffer = (byte*)0xB8000;
             for (byte i = 64; i <= 68; i++)
             {
-                *buffer++ = Add(i, 1);
+                *buffer++ = (byte)(Add(i, 2) - 1);
                 *buffer++ = 15;
             }
         }

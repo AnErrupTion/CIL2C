@@ -45,42 +45,15 @@ internal static partial class Utils
         };
     }
 
-    public static CType GetAddFinalType(CType type1, CType type2)
+    public static CType GetBinaryNumericOperationType(CType type1, CType type2) => type1 switch
     {
-        CType type;
-
-        switch (type1)
-        {
-            case CType.Int32 when type2 == CType.Int32:
-            {
-                type = CType.Int32;
-                break;
-            }
-            case CType.Int32 when type2 == CType.IntPtr:
-            {
-                type = CType.IntPtr;
-                break;
-            }
-            case CType.Int64 when type2 == CType.Int64:
-            {
-                type = CType.Int64;
-                break;
-            }
-            case CType.IntPtr when type2 == CType.Int32:
-            case CType.IntPtr when type2 == CType.IntPtr:
-            {
-                type = CType.IntPtr;
-                break;
-            }
-            default:
-            {
-                type = CType.Int32;
-                break;
-            }
-        }
-
-        return type;
-    }
+        CType.Int32 when type2 == CType.Int32 => CType.Int32,
+        CType.Int32 when type2 == CType.IntPtr => CType.IntPtr,
+        CType.Int64 when type2 == CType.Int64 => CType.Int64,
+        CType.IntPtr when type2 == CType.Int32 => CType.IntPtr,
+        CType.IntPtr when type2 == CType.IntPtr => CType.IntPtr,
+        _ => CType.Int32
+    };
 
     /*
      * A safe name is just a CIL method's full name with all non-alphanumeric characters replaced by underscores.
