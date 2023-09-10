@@ -1,6 +1,6 @@
 namespace System;
 
-public struct Int32
+public readonly struct Int32
 {
     
 }

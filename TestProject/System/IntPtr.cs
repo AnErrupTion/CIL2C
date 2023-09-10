@@ -1,6 +1,6 @@
 namespace System;
 
-public struct IntPtr
+public readonly struct IntPtr
 {
     
 }

@@ -7,6 +7,20 @@ namespace CIL2C;
 
 internal static partial class Utils
 {
+    public static readonly CType Object = new(GetSafeName("System.Object"), true);
+    public static readonly CType Void = new(GetSafeName("System.Void"), true);
+    public static readonly CType Boolean = new(GetSafeName("System.Boolean"), true);
+    public static readonly CType SByte = new(GetSafeName("System.SByte"), true);
+    public static readonly CType Int16 = new(GetSafeName("System.Int16"), true);
+    public static readonly CType Int32 = new(GetSafeName("System.Int32"), true);
+    public static readonly CType Int64 = new(GetSafeName("System.Int64"), true);
+    public static readonly CType Byte = new(GetSafeName("System.Byte"), true);
+    public static readonly CType UInt16 = new(GetSafeName("System.UInt16"), true);
+    public static readonly CType UInt32 = new(GetSafeName("System.UInt32"), true);
+    public static readonly CType UInt64 = new(GetSafeName("System.UInt64"), true);
+    public static readonly CType IntPtr = new(GetSafeName("System.IntPtr"), true);
+    public static readonly CType UIntPtr = new(GetSafeName("System.UIntPtr"), true);
+
     public static readonly CConstantInt IntM1 = new(-1);
     public static readonly CConstantInt Int0 = new(0);
     public static readonly CConstantInt Int1 = new(1);
@@ -28,41 +42,23 @@ internal static partial class Utils
     {
         var name = type.FullName;
 
-        // The documentation says pointers are of "native int" (so IntPtr), but this doesn't make sense since addresses
-        // can't be negative.
-        if (name.EndsWith('*') || name.EndsWith("[]")) return CType.UIntPtr;
-        //if (Types.TryGetValue(name, out var value)) return value;
+        if (name.EndsWith('*')) return IntPtr;
+        if (name.EndsWith("[]")) return UIntPtr;
+        if (Types.TryGetValue(name, out var value)) return value;
 
-        return name switch
-        {
-            "System.Void" => CType.Void,
-            "System.Boolean" => CType.Boolean,
-            "System.SByte" => CType.Int8,
-            "System.Int16" => CType.Int16,
-            "System.Int32" => CType.Int32,
-            "System.Int64" => CType.Int64,
-            "System.Byte" => CType.UInt8,
-            "System.UInt16" => CType.UInt16,
-            "System.UInt32" => CType.UInt32,
-            "System.UInt64" => CType.UInt64,
-            "System.IntPtr" => CType.IntPtr,
-            "System.UIntPtr" => CType.UIntPtr,
-            _ => Types[name]
-        };
+        throw new ArgumentOutOfRangeException(nameof(name), name, null);
     }
 
     public static CType GetBinaryNumericOperationType(CType type1, CType type2)
     {
-        if (type1 == CType.Int32 && type2 == CType.Int32) return CType.Int32;
-        if (type1 == CType.Int32 && type2 == CType.IntPtr) return CType.IntPtr;
-        if (type1 == CType.Int64 && type2 == CType.Int64) return CType.Int64;
-        if ((type1 == CType.IntPtr && type2 == CType.Int32) || (type1 == CType.IntPtr && type2 == CType.IntPtr)) return CType.IntPtr;
-        return CType.Int32;
+        if (type1 == Int32 && type2 == Int32) return Int32;
+        if (type1 == Int32 && type2 == IntPtr) return IntPtr;
+        if (type1 == Int64 && type2 == Int64) return Int64;
+        if ((type1 == IntPtr && type2 == Int32) || (type1 == IntPtr && type2 == IntPtr)) return IntPtr;
+        return Int32;
     }
 
-    /*
-     * A safe name is just a CIL method's full name with all non-alphanumeric characters replaced by underscores.
-     */
+    // A safe name is just a CIL method's full name with all non-alphanumeric characters replaced by underscores.
     public static string GetSafeName(string name) => SafeNameRegex().Replace(name, "_");
 
     [GeneratedRegex("[^0-9a-zA-Z]+")]

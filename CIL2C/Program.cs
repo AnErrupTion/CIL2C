@@ -18,7 +18,7 @@ public static class Program
         var staticConstructors = new List<MethodDef>();
         var methods = new List<Tuple<MethodDef, CType, string, CVariable[]>>();
 
-        // Emit types, fields and method definitions first
+        // First, emit the types, fields and method definitions
         foreach (var type in module.Types)
         {
             emitter.EmitType(type);
@@ -40,7 +40,7 @@ public static class Program
             }
         }
 
-        // Then, emit the actual method bodies
+        // And then, emit the actual method bodies
         foreach (var method in methods)
         {
             if (settings.Verbose) Console.WriteLine($"Emitting code: {method.Item1.FullName}");

@@ -1,6 +1,6 @@
 namespace System;
 
-public sealed class String
+public class String
 {
     
 }
