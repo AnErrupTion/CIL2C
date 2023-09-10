@@ -1,5 +1,7 @@
-﻿using System.Text;
+﻿using System.Collections.Concurrent;
+using System.Text;
 using CCG;
+using CCG.Builders;
 using CCG.Expressions;
 using CommandLine;
 using dnlib.DotNet;
@@ -11,6 +13,8 @@ public static class Program
     public static void Main(string[] args)
     {
         var settings = Parser.Default.ParseArguments<Settings>(args).Value;
+        var minify = settings.Minify;
+        var toggleComments = minify ? settings.ToggleComments : !settings.ToggleComments;
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = (int)(Environment.ProcessorCount * 1.2) };
         if (settings.Verbose) Console.WriteLine($"Using {parallelOptions.MaxDegreeOfParallelism} threads.");
@@ -25,23 +29,23 @@ public static class Program
         builder.AppendLine("#include <stdint.h>");
         builder.AppendLine("#include <stdbool.h>");
 
-        var fields = new List<FieldDef>();
-        var methods = new List<MethodDef>();
-        var staticConstructors = new List<MethodDef>();
+        var fields = new ConcurrentBag<FieldDef>();
+        var methods = new ConcurrentBag<MethodDef>();
+        var staticConstructors = new ConcurrentBag<MethodDef>();
 
         // First, emit the types (and load all fields and methods on the way)
-        var cTypes = new Dictionary<string, CType>();
-        
+        var cTypes = new ConcurrentDictionary<string, CType>();
+
         Parallel.ForEach(module.Types, parallelOptions, type =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting type: {type.FullName}");
 
-            var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
-            var cType = emitter.EmitType(type, out var signature);
+            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments);
 
-            lock (builder) builder.Append(emitter);
+            var cType = Emitter.EmitType(ref cBuilder, type, out var signature);
+            cTypes.TryAdd(type.FullName, cType);
 
-            cTypes.Add(type.FullName, cType);
+            lock (builder) builder.Append(cBuilder);
 
             foreach (var field in type.Fields)
             {
@@ -64,27 +68,27 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method definition: {method.FullName}");
 
-            var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
-            emitter.EmitMethodDefinition(ref cTypes, method);
+            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+            Emitter.EmitMethodDefinition(ref cBuilder, ref cTypes, method);
 
-            lock (builder) builder.Append(emitter);
+            lock (builder) builder.Append(cBuilder);
         });
 
         if (settings.Verbose) Console.WriteLine($"Emitted {methods.Count} methods.");
 
         // After that, emit the fields
-        var cFields = new Dictionary<string, CVariable>();
+        var cFields = new ConcurrentDictionary<string, CVariable>();
 
         Parallel.ForEach(fields, parallelOptions, field =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting field: {field.FullName}");
 
-            var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
-            var variable = emitter.EmitField(ref cTypes, field);
+            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
 
-            lock (builder) builder.Append(emitter);
+            var variable = Emitter.EmitField(ref cBuilder, ref cTypes, field);
+            cFields.TryAdd(field.FullName, variable);
 
-            cFields.Add(field.FullName, variable);
+            lock (builder) builder.Append(cBuilder);
         });
 
         if (settings.Verbose) Console.WriteLine($"Emitted {fields.Count} fields.");
@@ -94,17 +98,18 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method: {method.FullName}.");
 
-            var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
-            emitter.EmitMethod(ref cTypes, ref cFields, method);
+            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+            Emitter.EmitMethod(ref cBuilder, ref cTypes, ref cFields, method);
 
-            lock (builder) builder.Append(emitter);
+            lock (builder) builder.Append(cBuilder);
         });
 
         if (settings.Verbose) Console.WriteLine("Emitting main function.");
 
-        var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
-        emitter.EmitMainFunction(module.EntryPoint, staticConstructors);
-        builder.Append(emitter);
+        CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+        Emitter.EmitMainFunction(ref cBuilder, module.EntryPoint, ref staticConstructors);
+
+        builder.Append(cBuilder);
 
         if (settings.Verbose) Console.WriteLine("Emitted main function.");
 
