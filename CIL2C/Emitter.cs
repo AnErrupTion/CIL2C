@@ -19,6 +19,29 @@ public class Emitter
 
     public override string? ToString() => _builder.ToString();
 
+    public void EmitType(TypeDef type)
+    {
+        var name = Utils.GetSafeName(type.FullName);
+        var cType = new CType(name, true);
+
+        _builder.AddStruct(name);
+        _builder.BeginBlock();
+        _builder.EndBlock();
+
+        Utils.Types.Add(type.FullName, cType);
+    }
+
+    public void EmitField(FieldDef field)
+    {
+        var type = Utils.GetCType(field.FieldType);
+        var name = Utils.GetSafeName(field.FullName);
+        var variable = new CVariable(field.HasConstant, false, type, name);
+
+        _builder.AddVariable(variable);
+
+        Utils.Fields.Add(field.FullName, variable);
+    }
+
     public void EmitPrototype(MethodDef method, out CType type, out string safeName, out CVariable[] arguments)
     {
         type = Utils.GetCType(method.ReturnType);
@@ -102,6 +125,16 @@ public class Emitter
                 case Code.Ldarg_1: EmitLdarg(functionArguments[1]); break;
                 case Code.Ldarg_2: EmitLdarg(functionArguments[2]); break;
                 case Code.Ldarg_3: EmitLdarg(functionArguments[3]); break;
+                case Code.Stsfld:
+                {
+                    var targetField = (FieldDef)instruction.Operand;
+                    var value = _stackVariables.Pop();
+
+                    if (!Utils.Fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
+
+                    _builder.SetValueExpression(variable, value);
+                    break;
+                }
                 case Code.Call:
                 {
                     var targetMethod = (MethodDef)instruction.Operand;
@@ -150,6 +183,15 @@ public class Emitter
                 case Code.Ldc_I4_6: EmitLdcI4(Utils.Int6); break;
                 case Code.Ldc_I4_7: EmitLdcI4(Utils.Int7); break;
                 case Code.Ldc_I4_8: EmitLdcI4(Utils.Int8); break;
+                case Code.Ldc_I8:
+                {
+                    var value = new CConstantLong(Convert.ToInt64(instruction.Operand));
+                    var variable = new CVariable(true, false, CType.Int64, NewStackVariableName());
+
+                    _builder.AddVariable(variable, value);
+                    _stackVariables.Push(variable);
+                    break;
+                }
                 case Code.Conv_I: EmitConv(CType.IntPtr); break;
                 case Code.Conv_I1: EmitConv(CType.Int8); break;
                 case Code.Conv_I2: EmitConv(CType.Int16); break;
@@ -219,7 +261,7 @@ public class Emitter
             }
         }
 
-        _builder.EndBlock(true);
+        _builder.EndBlock();
     }
 
     /*
@@ -238,7 +280,7 @@ public class Emitter
         _builder.AddCall(new CCall(Utils.GetSafeName(entryPoint.FullName)));
 
         _builder.AddReturn(Utils.Int0);
-        _builder.EndBlock(true);
+        _builder.EndBlock();
     }
 
     #region Helpers
@@ -338,7 +380,7 @@ public class Emitter
         _builder.AddIf(compare);
         _builder.BeginBlock();
         _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
-        _builder.EndBlock(false);
+        _builder.EndBlock();
     }
 
     private void EmitCmpBr(Instruction targetInstruction, CCompareOperator op)
@@ -350,7 +392,7 @@ public class Emitter
         _builder.AddIf(compare);
         _builder.BeginBlock();
         _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
-        _builder.EndBlock(false);
+        _builder.EndBlock();
     }
 
     private string NewStackVariableName() => $"stack{_stackVariableCount++}";

@@ -21,11 +21,17 @@ internal static partial class Utils
     public static readonly CConstantBool BoolTrue = new(true);
     public static readonly CConstantBool BoolFalse = new(false);
 
+    public static readonly Dictionary<string, CType> Types = new();
+    public static readonly Dictionary<string, CVariable> Fields = new();
+
     public static CType GetCType(TypeSig type)
     {
         var name = type.FullName;
 
-        if (name.EndsWith('*')) return CType.IntPtr;
+        // The documentation says pointers are of "native int" (so IntPtr), but this doesn't make sense since addresses
+        // can't be negative.
+        if (name.EndsWith('*') || name.EndsWith("[]")) return CType.UIntPtr;
+        //if (Types.TryGetValue(name, out var value)) return value;
 
         return name switch
         {
@@ -41,19 +47,18 @@ internal static partial class Utils
             "System.UInt64" => CType.UInt64,
             "System.IntPtr" => CType.IntPtr,
             "System.UIntPtr" => CType.UIntPtr,
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type.FullName, null)
+            _ => Types[name]
         };
     }
 
-    public static CType GetBinaryNumericOperationType(CType type1, CType type2) => type1 switch
+    public static CType GetBinaryNumericOperationType(CType type1, CType type2)
     {
-        CType.Int32 when type2 == CType.Int32 => CType.Int32,
-        CType.Int32 when type2 == CType.IntPtr => CType.IntPtr,
-        CType.Int64 when type2 == CType.Int64 => CType.Int64,
-        CType.IntPtr when type2 == CType.Int32 => CType.IntPtr,
-        CType.IntPtr when type2 == CType.IntPtr => CType.IntPtr,
-        _ => CType.Int32
-    };
+        if (type1 == CType.Int32 && type2 == CType.Int32) return CType.Int32;
+        if (type1 == CType.Int32 && type2 == CType.IntPtr) return CType.IntPtr;
+        if (type1 == CType.Int64 && type2 == CType.Int64) return CType.Int64;
+        if ((type1 == CType.IntPtr && type2 == CType.Int32) || (type1 == CType.IntPtr && type2 == CType.IntPtr)) return CType.IntPtr;
+        return CType.Int32;
+    }
 
     /*
      * A safe name is just a CIL method's full name with all non-alphanumeric characters replaced by underscores.

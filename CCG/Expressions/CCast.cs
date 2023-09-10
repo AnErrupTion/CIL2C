@@ -23,7 +23,7 @@ public sealed class CCast : CExpression
 
         builder.Append('(');
         if (IsConst) builder.Append("const ");
-        builder.Append(CUtils.GetType(Type));
+        builder.Append(Type);
         if (IsPointer) builder.Append('*');
         builder.Append(')');
         builder.Append(Value.ToString());
@@ -37,7 +37,7 @@ public sealed class CCast : CExpression
 
         builder.Append('(');
         if (IsConst) builder.Append("const ");
-        builder.Append(CUtils.GetType(Type));
+        builder.Append(Type);
         if (IsPointer) builder.Append(" *");
         builder.Append(") ");
         builder.Append(Value.ToStringBeautified());

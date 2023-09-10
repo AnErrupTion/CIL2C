@@ -16,14 +16,21 @@ public static class Program
 
         var emitter = new Emitter(settings.Minify, settings.Minify ? settings.ToggleComments : !settings.ToggleComments);
         var staticConstructors = new List<MethodDef>();
+        var methods = new List<Tuple<MethodDef, CType, string, CVariable[]>>();
 
+        // Emit types, fields and method definitions first
         foreach (var type in module.Types)
         {
-            var methods = new List<Tuple<MethodDef, CType, string, CVariable[]>>();
+            emitter.EmitType(type);
+
+            foreach (var field in type.Fields)
+            {
+                if (field.IsStatic) emitter.EmitField(field);
+            }
+
             foreach (var method in type.Methods)
             {
-                if (!method.IsStaticConstructor &&
-                    method.DeclaringType.FullName != module.EntryPoint.DeclaringType.FullName) continue;
+                if (!method.IsStaticConstructor && method.DeclaringType.FullName != module.EntryPoint.DeclaringType.FullName) continue;
                 if (method.IsStaticConstructor) staticConstructors.Add(method);
 
                 if (settings.Verbose) Console.WriteLine($"Emitting prototype: {method.FullName}");
@@ -31,12 +38,13 @@ public static class Program
 
                 methods.Add(Tuple.Create(method, cType, safeName, arguments));
             }
+        }
 
-            foreach (var method in methods)
-            {
-                if (settings.Verbose) Console.WriteLine($"Emitting code: {method.Item1.FullName}");
-                emitter.Emit(method.Item1, method.Item2, method.Item3, method.Item4);
-            }
+        // Then, emit the actual method bodies
+        foreach (var method in methods)
+        {
+            if (settings.Verbose) Console.WriteLine($"Emitting code: {method.Item1.FullName}");
+            emitter.Emit(method.Item1, method.Item2, method.Item3, method.Item4);
         }
 
         emitter.EmitMainFunction(module.EntryPoint, staticConstructors);

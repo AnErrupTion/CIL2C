@@ -18,7 +18,7 @@ public abstract class CBuilder
     public abstract void AddInclude(string file);
 
     public abstract void BeginBlock();
-    public abstract void EndBlock(bool requireNewLine);
+    public abstract void EndBlock();
 
     public abstract void AddLabel(string label);
     public abstract void GoToLabel(string label);
@@ -27,6 +27,8 @@ public abstract class CBuilder
     public abstract void AddVariable(CVariable variable, CExpression value);
 
     public abstract void SetValueExpression(CExpression expression, CExpression value);
+
+    public abstract void AddStruct(string name);
 
     public abstract void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args);
 

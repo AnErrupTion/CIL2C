@@ -39,7 +39,7 @@ public class CBeautifiedBuilder : CBuilder
     }
 
     #endregion
-    
+
     #region Blocks
 
     public override void BeginBlock()
@@ -50,12 +50,11 @@ public class CBeautifiedBuilder : CBuilder
         _tabs++;
     }
 
-    public override void EndBlock(bool requireNewLine)
+    public override void EndBlock()
     {
         _tabs--;
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append('}');
-        _builder.AppendLine();
+        _builder.AppendLine("};");
     }
 
     #endregion
@@ -87,7 +86,7 @@ public class CBeautifiedBuilder : CBuilder
     {
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
         if (variable.IsConst) _builder.Append("const ");
-        _builder.Append(CUtils.GetType(variable.Type));
+        _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append(" *");
         _builder.Append(' ');
         _builder.Append(variable.ToStringBeautified());
@@ -99,7 +98,7 @@ public class CBeautifiedBuilder : CBuilder
     {
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
         if (variable.IsConst) _builder.Append("const ");
-        _builder.Append(CUtils.GetType(variable.Type));
+        _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append(" *");
         _builder.Append(' ');
         _builder.Append(variable.ToStringBeautified());
@@ -125,6 +124,17 @@ public class CBeautifiedBuilder : CBuilder
 
     #endregion
 
+    #region Structs
+
+    public override void AddStruct(string name)
+    {
+        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        _builder.Append("struct ");
+        _builder.AppendLine(name);
+    }
+
+    #endregion
+
     #region Functions
 
     public override void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args)
@@ -133,7 +143,7 @@ public class CBeautifiedBuilder : CBuilder
         if (name.Contains(' ')) throw new ArgumentException("Function name contains at least one space.", nameof(name));
 
         for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append(CUtils.GetType(returnType));
+        _builder.Append(returnType);
         _builder.Append(' ');
         _builder.Append(name);
         _builder.Append('(');
@@ -144,7 +154,7 @@ public class CBeautifiedBuilder : CBuilder
             {
                 var arg = args[i];
                 if (arg.IsConst) _builder.Append("const ");
-                _builder.Append(CUtils.GetType(arg.Type));
+                _builder.Append(arg.Type);
                 if (arg.IsPointer) _builder.Append(" *");
                 _builder.Append(' ');
                 _builder.Append(arg.Name);

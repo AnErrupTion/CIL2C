@@ -40,16 +40,9 @@ public class CMinifiedBuilder : CBuilder
 
     #region Blocks
 
-    public override void BeginBlock()
-    {
-        _builder.Append('{');
-    }
+    public override void BeginBlock() => _builder.Append('{');
 
-    public override void EndBlock(bool requireNewLine)
-    {
-        _builder.Append('}');
-        if (requireNewLine) _builder.AppendLine();
-    }
+    public override void EndBlock() => _builder.Append("};");
 
     #endregion
 
@@ -75,7 +68,7 @@ public class CMinifiedBuilder : CBuilder
     public override void AddVariable(CVariable variable)
     {
         if (variable.IsConst) _builder.Append("const ");
-        _builder.Append(CUtils.GetType(variable.Type));
+        _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append('*');
         _builder.Append(' ');
         _builder.Append(variable.ToString());
@@ -85,7 +78,7 @@ public class CMinifiedBuilder : CBuilder
     public override void AddVariable(CVariable variable, CExpression value)
     {
         if (variable.IsConst) _builder.Append("const ");
-        _builder.Append(CUtils.GetType(variable.Type));
+        _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append('*');
         _builder.Append(' ');
         _builder.Append(variable.ToString());
@@ -108,6 +101,16 @@ public class CMinifiedBuilder : CBuilder
 
     #endregion
 
+    #region Structs
+
+    public override void AddStruct(string name)
+    {
+        _builder.Append("struct ");
+        _builder.Append(name);
+    }
+
+    #endregion
+
     #region Functions
 
     public override void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args)
@@ -115,7 +118,7 @@ public class CMinifiedBuilder : CBuilder
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Function name is null or empty.", nameof(name));
         if (name.Contains(' ')) throw new ArgumentException("Function name contains at least one space.", nameof(name));
 
-        _builder.Append(CUtils.GetType(returnType));
+        _builder.Append(returnType);
         _builder.Append(' ');
         _builder.Append(name);
         _builder.Append('(');
@@ -126,7 +129,7 @@ public class CMinifiedBuilder : CBuilder
             {
                 var arg = args[i];
                 if (arg.IsConst) _builder.Append("const ");
-                _builder.Append(CUtils.GetType(arg.Type));
+                _builder.Append(arg.Type);
                 if (arg.IsPointer) _builder.Append('*');
                 _builder.Append(' ');
                 _builder.Append(arg.Name);
