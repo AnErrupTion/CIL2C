@@ -188,9 +188,29 @@ public class Emitter
                     break;
                 }
                 case Code.Brtrue_S:
-                case Code.Brtrue: EmitCondBr((Instruction)instruction.Operand, Utils.BoolTrue); break;
+                case Code.Brtrue: EmitCondBrEqual((Instruction)instruction.Operand, Utils.BoolTrue); break;
                 case Code.Brfalse_S:
-                case Code.Brfalse: EmitCondBr((Instruction)instruction.Operand, Utils.BoolFalse); break;
+                case Code.Brfalse: EmitCondBrEqual((Instruction)instruction.Operand, Utils.BoolFalse); break;
+                case Code.Beq_S:
+                case Code.Beq: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Equal); break;
+                case Code.Bge_S:
+                case Code.Bge_Un_S:
+                case Code.Bge_Un:
+                case Code.Bge: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.AboveOrEqual); break;
+                case Code.Bgt_S:
+                case Code.Bgt_Un_S:
+                case Code.Bgt_Un:
+                case Code.Bgt: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Above); break;
+                case Code.Ble_S:
+                case Code.Ble_Un_S:
+                case Code.Ble_Un:
+                case Code.Ble: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.BelowOrEqual); break;
+                case Code.Blt_S:
+                case Code.Blt_Un_S:
+                case Code.Blt_Un:
+                case Code.Blt: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Below); break;
+                case Code.Bne_Un_S:
+                case Code.Bne_Un: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.NotEqual); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -299,7 +319,18 @@ public class Emitter
         _builder.SetValueExpression(pointer, value);
     }
 
-    private void EmitCondBr(Instruction targetInstruction, CExpression compareValue)
+    private void EmitCmp(CCompareOperator op)
+    {
+        var value2 = _stackVariables.Pop();
+        var value1 = _stackVariables.Pop();
+        var compare = new CCompareOperation(value1, op, value2);
+        var variable = new CVariable(true, false, CType.Boolean, NewStackVariableName());
+
+        _builder.AddVariable(variable, compare);
+        _stackVariables.Push(variable);
+    }
+
+    private void EmitCondBrEqual(Instruction targetInstruction, CExpression compareValue)
     {
         var value = _stackVariables.Pop();
         var compare = new CCompareOperation(value, CCompareOperator.Equal, compareValue);
@@ -310,15 +341,16 @@ public class Emitter
         _builder.EndBlock(false);
     }
 
-    private void EmitCmp(CCompareOperator op)
+    private void EmitCmpBr(Instruction targetInstruction, CCompareOperator op)
     {
         var value2 = _stackVariables.Pop();
         var value1 = _stackVariables.Pop();
         var compare = new CCompareOperation(value1, op, value2);
-        var variable = new CVariable(true, false, CType.Boolean, NewStackVariableName());
 
-        _builder.AddVariable(variable, compare);
-        _stackVariables.Push(variable);
+        _builder.AddIf(compare);
+        _builder.BeginBlock();
+        _builder.GoToLabel($"IL_{targetInstruction.Offset:X4}");
+        _builder.EndBlock(false);
     }
 
     private string NewStackVariableName() => $"stack{_stackVariableCount++}";
