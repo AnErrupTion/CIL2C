@@ -10,10 +10,7 @@ public class CMinifiedBuilder : CBuilder
     public override string ToString() => _builder.ToString();
 
     public CMinifiedBuilder(bool enableComments = false) : base(enableComments)
-    {
-        _builder.AppendLine("#include <stdint.h>");
-        _builder.AppendLine("#include <stdbool.h>");
-    }
+    { }
 
     #region Comments
 

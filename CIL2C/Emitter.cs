@@ -15,7 +15,7 @@ public class Emitter
 
     public override string? ToString() => _builder.ToString();
 
-    public void EmitType(TypeDef type, out TypeSig signature)
+    public CType EmitType(TypeDef type, out TypeSig signature)
     {
         signature = type.ToTypeSig();
 
@@ -50,9 +50,10 @@ public class Emitter
 
             _builder.EndBlock();
 
-            Utils.Types.Add(name, new CType(safeName, true));
+            return new CType(safeName, true);
         }
-        else if (type.IsEnum)
+
+        if (type.IsEnum)
         {
             var enumFields = new List<CEnumField>();
 
@@ -68,13 +69,15 @@ public class Emitter
 
             _builder.AddEnum(safeName, enumFields.ToArray());
 
-            Utils.Types.Add(name, new CType(safeName, false, true));
+            return new CType(safeName, false, true);
         }
+
+        throw new ArgumentException(null, nameof(type));
     }
 
-    public void EmitField(FieldDef field)
+    public CVariable EmitField(ref Dictionary<string, CType> types, FieldDef field)
     {
-        var type = Utils.GetCType(field.FieldType);
+        var type = GetCType(ref types, field.FieldType);
         var name = Utils.GetSafeName(field.FullName);
         var variable = new CVariable(field.HasConstant, false, type, name);
 
@@ -95,19 +98,19 @@ public class Emitter
         }
         else _builder.AddVariable(variable);
 
-        Utils.Fields.Add(field.FullName, variable);
+        return variable;
     }
 
-    public void EmitPrototype(MethodDef method, out CType type, out string safeName, out CVariable[] arguments)
+    public void EmitMethodDefinition(ref Dictionary<string, CType> types, MethodDef method)
     {
-        type = Utils.GetCType(method.ReturnType);
-        safeName = Utils.GetSafeName(method.FullName);
-        arguments = new CVariable[method.Parameters.Count];
+        var type = GetCType(ref types, method.ReturnType);
+        var safeName = Utils.GetSafeName(method.FullName);
+        var arguments = new CVariable[method.Parameters.Count];
 
         for (var i = 0; i < arguments.Length; i++)
         {
             var argument = method.Parameters[i];
-            arguments[i] = new CVariable(false, false, Utils.GetCType(argument.Type), argument.Name);
+            arguments[i] = new CVariable(false, false, GetCType(ref types, argument.Type), argument.Name);
         }
 
         _builder.AddFunction(type, safeName, true, arguments);
@@ -127,8 +130,18 @@ public class Emitter
      * be the CIL evaluation stack. At runtime (so in the C code), those stack values are actually constant variables,
      * which allows them to be more easily and more efficiently optimized by the C compiler.
      */
-    public void Emit(MethodDef method, CType functionType, string safeName, CVariable[] functionArguments)
+    public void EmitMethod(ref Dictionary<string, CType> types, ref Dictionary<string, CVariable> fields, MethodDef method)
     {
+        var functionType = GetCType(ref types, method.ReturnType);
+        var safeName = Utils.GetSafeName(method.FullName);
+        var functionArguments = new CVariable[method.Parameters.Count];
+
+        for (var i = 0; i < functionArguments.Length; i++)
+        {
+            var argument = method.Parameters[i];
+            functionArguments[i] = new CVariable(false, false, GetCType(ref types, argument.Type), argument.Name);
+        }
+
         var labels = new Dictionary<uint, string>();
         foreach (var instruction in method.Body.Instructions)
         {
@@ -153,7 +166,7 @@ public class Emitter
         {
             var local = method.Body.Variables[i];
             var name = string.IsNullOrEmpty(local.Name) ? $"local{i}" : local.Name;
-            var variable = new CVariable(false, false, Utils.GetCType(local.Type), name);
+            var variable = new CVariable(false, false, GetCType(ref types, local.Type), name);
 
             _builder.AddVariable(variable);
             variables.Add(variable);
@@ -180,7 +193,7 @@ public class Emitter
                 case Code.Ldsfld:
                 {
                     var targetField = (FieldDef)instruction.Operand;
-                    if (!Utils.Fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
+                    if (!fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
 
                     stackVariables.Push(variable);
                     break;
@@ -188,7 +201,7 @@ public class Emitter
                 case Code.Stsfld:
                 {
                     var targetField = (FieldDef)instruction.Operand;
-                    if (!Utils.Fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
+                    if (!fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
 
                     var currentValue = stackVariables.Peek();
                     if (currentValue.Type != variable.Type) EmitConv(ref stackVariables, ref stackVariableCount, variable.Type);
@@ -206,7 +219,7 @@ public class Emitter
                     for (var i = arguments.Length - 1; i >= 0; i--)
                     {
                         var parameter = targetMethod.Parameters[i];
-                        var type = Utils.GetCType(parameter.Type);
+                        var type = GetCType(ref types, parameter.Type);
                         var variable = stackVariables.Peek();
 
                         if (type != variable.Type) EmitConv(ref stackVariables, ref stackVariableCount, type);
@@ -214,7 +227,7 @@ public class Emitter
                         arguments[i] = stackVariables.Pop();
                     }
 
-                    var returnType = Utils.GetCType(targetMethod.ReturnType);
+                    var returnType = GetCType(ref types, targetMethod.ReturnType);
                     var call = new CCall(Utils.GetSafeName(targetMethod.FullName), arguments);
 
                     if (returnType != Utils.Void)
@@ -363,6 +376,26 @@ public class Emitter
 
     #region Helpers
 
+    private static CType GetCType(ref Dictionary<string, CType> types, TypeSig type)
+    {
+        var name = type.FullName;
+
+        if (name.EndsWith('*')) return Utils.IntPtr;
+        if (name.EndsWith("[]")) return Utils.UIntPtr;
+        if (types.TryGetValue(name, out var value)) return value;
+
+        throw new ArgumentOutOfRangeException(nameof(name), name, null);
+    }
+
+    private static CType GetBinaryNumericOperationType(CType type1, CType type2)
+    {
+        if (type1 == Utils.Int32 && type2 == Utils.Int32) return Utils.Int32;
+        if (type1 == Utils.Int32 && type2 == Utils.IntPtr) return Utils.IntPtr;
+        if (type1 == Utils.Int64 && type2 == Utils.Int64) return Utils.Int64;
+        if ((type1 == Utils.IntPtr && type2 == Utils.Int32) || (type1 == Utils.IntPtr && type2 == Utils.IntPtr)) return Utils.IntPtr;
+        return Utils.Int32;
+    }
+
     private static CExpression GetConstantValue(object value) => value switch
     {
         bool b => new CConstantBool(b),
@@ -384,7 +417,7 @@ public class Emitter
                 or CBinaryOperator.Mul
                 or CBinaryOperator.Div
                 or CBinaryOperator.Mod
-                => Utils.GetBinaryNumericOperationType(value1.Type, value2.Type),
+                => GetBinaryNumericOperationType(value1.Type, value2.Type),
             CBinaryOperator.And => throw new Exception(),
             CBinaryOperator.Or => throw new Exception(),
             CBinaryOperator.Xor => throw new Exception(),

@@ -35,29 +35,6 @@ internal static partial class Utils
     public static readonly CConstantBool BoolTrue = new(true);
     public static readonly CConstantBool BoolFalse = new(false);
 
-    public static readonly Dictionary<string, CType> Types = new();
-    public static readonly Dictionary<string, CVariable> Fields = new();
-
-    public static CType GetCType(TypeSig type)
-    {
-        var name = type.FullName;
-
-        if (name.EndsWith('*')) return IntPtr;
-        if (name.EndsWith("[]")) return UIntPtr;
-        if (Types.TryGetValue(name, out var value)) return value;
-
-        throw new ArgumentOutOfRangeException(nameof(name), name, null);
-    }
-
-    public static CType GetBinaryNumericOperationType(CType type1, CType type2)
-    {
-        if (type1 == Int32 && type2 == Int32) return Int32;
-        if (type1 == Int32 && type2 == IntPtr) return IntPtr;
-        if (type1 == Int64 && type2 == Int64) return Int64;
-        if ((type1 == IntPtr && type2 == Int32) || (type1 == IntPtr && type2 == IntPtr)) return IntPtr;
-        return Int32;
-    }
-
     // A safe name is just a CIL method's full name with all non-alphanumeric characters replaced by underscores.
     public static string GetSafeName(string name) => SafeNameRegex().Replace(name, "_");
 
