@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using CCG;
 using CCG.Expressions;
-using dnlib.DotNet;
 
 namespace CIL2C;
 

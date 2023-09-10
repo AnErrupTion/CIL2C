@@ -192,7 +192,6 @@ public class CMinifiedBuilder : CBuilder
         _builder.Append("if(");
         _builder.Append(operation.ToStringBeautified());
         _builder.Append(')');
-        _builder.AppendLine();
     }
 
     public override void AddElse() => _builder.AppendLine("else");

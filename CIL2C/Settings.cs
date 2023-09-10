@@ -21,4 +21,7 @@ public class Settings
 
     [Option('v', "verbose", Required = false, HelpText = "Enables verbose output.")]
     public bool Verbose { get; set; }
+
+    [Option('t', "threads", Required = false, HelpText = "Changes the number of threads. Set to -1 for auto (default).")]
+    public int Threads { get; set; } = -1;
 }

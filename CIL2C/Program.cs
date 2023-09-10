@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using System.Text;
+using System.Diagnostics;
 using CCG;
 using CCG.Builders;
 using CCG.Expressions;
@@ -15,14 +15,17 @@ public static class Program
         var settings = Parser.Default.ParseArguments<Settings>(args).Value;
         var minify = settings.Minify;
         var toggleComments = minify ? settings.ToggleComments : !settings.ToggleComments;
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = settings.Threads == -1 ? (int)(Environment.ProcessorCount * 1.2) : settings.Threads
+        };
 
-        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = (int)(Environment.ProcessorCount * 1.2) };
         if (settings.Verbose) Console.WriteLine($"Using {parallelOptions.MaxDegreeOfParallelism} threads.");
 
+        var stopwatch = Stopwatch.StartNew();
+
         if (settings.Verbose) Console.WriteLine($"Loading input file: {settings.InputFile}");
-
         var module = ModuleDefMD.Load(settings.InputFile);
-
         if (settings.Verbose) Console.WriteLine("Loaded input file.");
 
         CBuilder builder = minify
@@ -118,6 +121,12 @@ public static class Program
         Emitter.EmitMainFunction(ref builder, module.EntryPoint, ref staticConstructors);
         if (settings.Verbose) Console.WriteLine("Emitted main function.");
 
+        stopwatch.Stop();
+
+        if (settings.Verbose) Console.WriteLine($"Took {stopwatch.Elapsed.Milliseconds} ms ({stopwatch.Elapsed.Seconds} s).");
+
+        if (settings.Verbose) Console.WriteLine("Saving file.");
         File.WriteAllText(settings.OutputFile, builder.ToString());
+        if (settings.Verbose) Console.WriteLine("Saved file.");
     }
 }
