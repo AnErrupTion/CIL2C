@@ -21,10 +21,11 @@ public static class Program
         // First, emit the types, fields and method definitions
         foreach (var type in module.Types)
         {
-            emitter.EmitType(type);
+            emitter.EmitType(type, out var signature);
 
             foreach (var field in type.Fields)
             {
+                if (type.IsEnum && field.FieldType.FullName == signature.FullName) continue;
                 if (field.IsStatic) emitter.EmitField(field);
             }
 

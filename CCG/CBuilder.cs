@@ -30,6 +30,8 @@ public abstract class CBuilder
 
     public abstract void AddStruct(string name);
 
+    public abstract void AddEnum(string name, params CEnumField[] values);
+
     public abstract void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args);
 
     public abstract void AddCall(CCall call);

@@ -21,7 +21,7 @@ public class CBeautifiedBuilder : CBuilder
 
     protected override void InternalAddComment(string text)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("// ");
         _builder.AppendLine(text);
     }
@@ -44,7 +44,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void BeginBlock()
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append('{');
         _builder.AppendLine();
         _tabs++;
@@ -53,7 +53,7 @@ public class CBeautifiedBuilder : CBuilder
     public override void EndBlock()
     {
         _tabs--;
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.AppendLine("};");
     }
 
@@ -71,7 +71,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void GoToLabel(string label)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("goto ");
         _builder.Append(label);
         _builder.Append(';');
@@ -84,7 +84,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddVariable(CVariable variable)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         if (variable.IsConst) _builder.Append("const ");
         _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append(" *");
@@ -96,7 +96,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddVariable(CVariable variable, CExpression value)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         if (variable.IsConst) _builder.Append("const ");
         _builder.Append(variable.Type);
         if (variable.IsPointer) _builder.Append(" *");
@@ -114,7 +114,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void SetValueExpression(CExpression expression, CExpression value)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append(expression.ToStringBeautified());
         _builder.Append(" = ");
         _builder.Append(value.ToStringBeautified());
@@ -128,9 +128,40 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddStruct(string name)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("struct ");
         _builder.AppendLine(name);
+    }
+
+    #endregion
+
+    #region Enums
+
+    public override void AddEnum(string name, params CEnumField[] values)
+    {
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
+        _builder.Append("enum ");
+        _builder.AppendLine(name);
+
+        BeginBlock();
+        for (var i = 0; i < values.Length; i++)
+        {
+            for (var j = 0; j < _tabs; j++) _builder.Append('\t');
+
+            var value = values[i];
+            _builder.Append(value.Name);
+
+            if (value.Value != null)
+            {
+                _builder.Append(" = ");
+                _builder.Append(value.Value.ToStringBeautified());
+            }
+
+            if (i != values.Length - 1) _builder.Append(',');
+
+            _builder.AppendLine();
+        }
+        EndBlock();
     }
 
     #endregion
@@ -142,7 +173,7 @@ public class CBeautifiedBuilder : CBuilder
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Function name is null or empty.", nameof(name));
         if (name.Contains(' ')) throw new ArgumentException("Function name contains at least one space.", nameof(name));
 
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append(returnType);
         _builder.Append(' ');
         _builder.Append(name);
@@ -175,7 +206,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddCall(CCall call)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append(call.ToStringBeautified());
         _builder.Append(';');
         _builder.AppendLine();
@@ -187,7 +218,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddIf(CCompareOperation operation)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("if (");
         _builder.Append(operation.ToStringBeautified());
         _builder.Append(')');
@@ -196,7 +227,7 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddElse()
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.AppendLine("else");
     }
 
@@ -206,13 +237,13 @@ public class CBeautifiedBuilder : CBuilder
 
     public override void AddReturn()
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.AppendLine("return;");
     }
 
     public override void AddReturn(CExpression expression)
     {
-        for (var i = 0U; i < _tabs; i++) _builder.Append('\t');
+        for (var i = 0; i < _tabs; i++) _builder.Append('\t');
         _builder.Append("return ");
         _builder.Append(expression.ToStringBeautified());
         _builder.Append(';');

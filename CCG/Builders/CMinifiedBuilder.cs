@@ -111,6 +111,32 @@ public class CMinifiedBuilder : CBuilder
 
     #endregion
 
+    #region Enums
+
+    public override void AddEnum(string name, params CEnumField[] values)
+    {
+        _builder.Append("enum ");
+        _builder.Append(name);
+
+        BeginBlock();
+        for (var i = 0; i < values.Length; i++)
+        {
+            var value = values[i];
+            _builder.Append(value.Name);
+
+            if (value.Value != null)
+            {
+                _builder.Append('=');
+                _builder.Append(value.Value.ToString());
+            }
+
+            if (i != values.Length - 1) _builder.Append(',');
+        }
+        EndBlock();
+    }
+
+    #endregion
+
     #region Functions
 
     public override void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args)

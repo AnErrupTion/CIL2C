@@ -9,48 +9,67 @@ namespace CIL2C;
 public class Emitter
 {
     private readonly CBuilder _builder;
-    private readonly List<CVariable> _variables = new();
-    private readonly Stack<CVariable> _stackVariables = new();
-
-    private uint _stackVariableCount;
 
     public Emitter(bool minify, bool enableComments)
         => _builder = minify ? new CMinifiedBuilder(enableComments) : new CBeautifiedBuilder(enableComments);
 
     public override string? ToString() => _builder.ToString();
 
-    public void EmitType(TypeDef type)
+    public void EmitType(TypeDef type, out TypeSig signature)
     {
+        signature = type.ToTypeSig();
+
         var name = type.FullName;
         var safeName = Utils.GetSafeName(name);
 
-        _builder.AddStruct(safeName);
-        _builder.BeginBlock();
-
-        /*if (type is { IsClass: true, IsValueType: false })
+        if (type is { IsClass: true, IsEnum: false })
         {
-            _builder.AddVariable(new CVariable(false, false, Utils.Object, "header"));
-        }*/
+            _builder.AddStruct(safeName);
+            _builder.BeginBlock();
 
-        switch (name)
-        {
-            case "System.Char": _builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
-            case "System.Boolean": _builder.AddVariable(new CVariable(false, false, CType.Boolean, "value")); break;
-            case "System.SByte": _builder.AddVariable(new CVariable(false, false, CType.Int8, "value")); break;
-            case "System.Int16": _builder.AddVariable(new CVariable(false, false, CType.Int16, "value")); break;
-            case "System.Int32": _builder.AddVariable(new CVariable(false, false, CType.Int32, "value")); break;
-            case "System.Int64": _builder.AddVariable(new CVariable(false, false, CType.Int64, "value")); break;
-            case "System.Byte": _builder.AddVariable(new CVariable(false, false, CType.UInt8, "value")); break;
-            case "System.UInt16": _builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
-            case "System.UInt32": _builder.AddVariable(new CVariable(false, false, CType.UInt32, "value")); break;
-            case "System.UInt64": _builder.AddVariable(new CVariable(false, false, CType.UInt64, "value")); break;
-            case "System.IntPtr": _builder.AddVariable(new CVariable(false, false, CType.IntPtr, "value")); break;
-            case "System.UIntPtr": _builder.AddVariable(new CVariable(false, false, CType.UIntPtr, "value")); break;
+            /*if (type is { IsClass: true, IsValueType: false })
+            {
+                _builder.AddVariable(new CVariable(false, false, Utils.Object, "header"));
+            }*/
+
+            switch (name)
+            {
+                case "System.Char": _builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
+                case "System.Boolean": _builder.AddVariable(new CVariable(false, false, CType.Boolean, "value")); break;
+                case "System.SByte": _builder.AddVariable(new CVariable(false, false, CType.Int8, "value")); break;
+                case "System.Int16": _builder.AddVariable(new CVariable(false, false, CType.Int16, "value")); break;
+                case "System.Int32": _builder.AddVariable(new CVariable(false, false, CType.Int32, "value")); break;
+                case "System.Int64": _builder.AddVariable(new CVariable(false, false, CType.Int64, "value")); break;
+                case "System.Byte": _builder.AddVariable(new CVariable(false, false, CType.UInt8, "value")); break;
+                case "System.UInt16": _builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
+                case "System.UInt32": _builder.AddVariable(new CVariable(false, false, CType.UInt32, "value")); break;
+                case "System.UInt64": _builder.AddVariable(new CVariable(false, false, CType.UInt64, "value")); break;
+                case "System.IntPtr": _builder.AddVariable(new CVariable(false, false, CType.IntPtr, "value")); break;
+                case "System.UIntPtr": _builder.AddVariable(new CVariable(false, false, CType.UIntPtr, "value")); break;
+            }
+
+            _builder.EndBlock();
+
+            Utils.Types.Add(name, new CType(safeName, true));
         }
+        else if (type.IsEnum)
+        {
+            var enumFields = new List<CEnumField>();
 
-        _builder.EndBlock();
+            foreach (var field in type.Fields)
+            {
+                if (field.FieldType.FullName != signature.FullName) continue;
 
-        Utils.Types.Add(name, new CType(safeName, true));
+                var fieldSafeName = Utils.GetSafeName(field.FullName);
+                var fieldValue = GetConstantValue(field.Constant.Value);
+
+                enumFields.Add(new CEnumField(fieldSafeName, fieldValue));
+            }
+
+            _builder.AddEnum(safeName, enumFields.ToArray());
+
+            Utils.Types.Add(name, new CType(safeName, false, true));
+        }
     }
 
     public void EmitField(FieldDef field)
@@ -59,7 +78,22 @@ public class Emitter
         var name = Utils.GetSafeName(field.FullName);
         var variable = new CVariable(field.HasConstant, false, type, name);
 
-        _builder.AddVariable(variable);
+        if (field.HasConstant)
+        {
+            var constantValue = GetConstantValue(field.Constant.Value);
+            if (type.IsStruct)
+            {
+                var values = new Dictionary<string, CExpression>
+                {
+                    {"value", constantValue}
+                };
+                var structValue = new CStructInitialization(values);
+                var value = new CBlock(structValue);
+
+                _builder.AddVariable(variable, value);
+            } else _builder.AddVariable(variable, constantValue);
+        }
+        else _builder.AddVariable(variable);
 
         Utils.Fields.Add(field.FullName, variable);
     }
@@ -109,13 +143,9 @@ public class Emitter
         _builder.AddFunction(functionType, safeName, false, functionArguments);
         _builder.BeginBlock();
 
-        _variables.Clear();
-        _variables.EnsureCapacity(method.Body.Variables.Count);
-
-        _stackVariables.Clear();
-        _stackVariables.EnsureCapacity(method.Body.MaxStack);
-
-        _stackVariableCount = 0;
+        var variables = new List<CVariable>(method.Body.Variables.Count); 
+        var stackVariables = new Stack<CVariable>(method.Body.MaxStack); 
+        var stackVariableCount = 0U;
 
         _builder.AddComment("Locals");
         // TODO: Init locals
@@ -126,7 +156,7 @@ public class Emitter
             var variable = new CVariable(false, false, Utils.GetCType(local.Type), name);
 
             _builder.AddVariable(variable);
-            _variables.Add(variable);
+            variables.Add(variable);
         }
 
         foreach (var instruction in method.Body.Instructions)
@@ -141,19 +171,29 @@ public class Emitter
             switch (instruction.OpCode.Code)
             {
                 case Code.Nop: break;
-                case Code.Dup: _stackVariables.Push(_stackVariables.Peek()); break;
-                case Code.Ldarg: EmitLdarg(functionArguments[Convert.ToUInt16(instruction.Operand)]); break;
-                case Code.Ldarg_0: EmitLdarg(functionArguments[0]); break;
-                case Code.Ldarg_1: EmitLdarg(functionArguments[1]); break;
-                case Code.Ldarg_2: EmitLdarg(functionArguments[2]); break;
-                case Code.Ldarg_3: EmitLdarg(functionArguments[3]); break;
+                case Code.Dup: stackVariables.Push(stackVariables.Peek()); break;
+                case Code.Ldarg: EmitLdarg(ref stackVariables, ref stackVariableCount, functionArguments[Convert.ToUInt16(instruction.Operand)]); break;
+                case Code.Ldarg_0: EmitLdarg(ref stackVariables, ref stackVariableCount, functionArguments[0]); break;
+                case Code.Ldarg_1: EmitLdarg(ref stackVariables, ref stackVariableCount, functionArguments[1]); break;
+                case Code.Ldarg_2: EmitLdarg(ref stackVariables, ref stackVariableCount, functionArguments[2]); break;
+                case Code.Ldarg_3: EmitLdarg(ref stackVariables, ref stackVariableCount, functionArguments[3]); break;
+                case Code.Ldsfld:
+                {
+                    var targetField = (FieldDef)instruction.Operand;
+                    if (!Utils.Fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
+
+                    stackVariables.Push(variable);
+                    break;
+                }
                 case Code.Stsfld:
                 {
                     var targetField = (FieldDef)instruction.Operand;
-                    var value = _stackVariables.Pop();
-
                     if (!Utils.Fields.TryGetValue(targetField.FullName, out var variable)) throw new KeyNotFoundException();
 
+                    var currentValue = stackVariables.Peek();
+                    if (currentValue.Type != variable.Type) EmitConv(ref stackVariables, ref stackVariableCount, variable.Type);
+
+                    var value = stackVariables.Pop();
                     _builder.SetValueExpression(variable, value);
                     break;
                 }
@@ -167,11 +207,11 @@ public class Emitter
                     {
                         var parameter = targetMethod.Parameters[i];
                         var type = Utils.GetCType(parameter.Type);
-                        var variable = _stackVariables.Peek();
+                        var variable = stackVariables.Peek();
 
-                        if (type != variable.Type) EmitConv(type);
+                        if (type != variable.Type) EmitConv(ref stackVariables, ref stackVariableCount, type);
 
-                        arguments[i] = _stackVariables.Pop();
+                        arguments[i] = stackVariables.Pop();
                     }
 
                     var returnType = Utils.GetCType(targetMethod.ReturnType);
@@ -179,87 +219,87 @@ public class Emitter
 
                     if (returnType != Utils.Void)
                     {
-                        var variable = new CVariable(true, false, returnType, NewStackVariableName());
+                        var variable = new CVariable(true, false, returnType, NewStackVariableName(ref stackVariableCount));
 
                         _builder.AddVariable(variable, call);
-                        _stackVariables.Push(variable);
+                        stackVariables.Push(variable);
                     } else _builder.AddCall(call);
                     break;
                 }
                 case Code.Ret:
                 {
-                    if (_stackVariables.Count > 0)
+                    if (stackVariables.Count > 0)
                     {
-                        var value = _stackVariables.Pop();
+                        var value = stackVariables.Pop();
                         _builder.AddReturn(value);
                     }
                     else
                     {
-                        var variable = new CVariable(true, false, Utils.Void, NewStackVariableName());
+                        var variable = new CVariable(true, false, Utils.Void, NewStackVariableName(ref stackVariableCount));
 
                         _builder.AddVariable(variable, new CBlock(null));
                         _builder.AddReturn(variable);
                     }
                     break;
                 }
-                case Code.Add: EmitBinaryOperation(CBinaryOperator.Add); break;
-                case Code.Sub: EmitBinaryOperation(CBinaryOperator.Sub); break;
-                case Code.Mul: EmitBinaryOperation(CBinaryOperator.Mul); break;
+                case Code.Add: EmitBinaryOperation(ref stackVariables, ref stackVariableCount, CBinaryOperator.Add); break;
+                case Code.Sub: EmitBinaryOperation(ref stackVariables, ref stackVariableCount, CBinaryOperator.Sub); break;
+                case Code.Mul: EmitBinaryOperation(ref stackVariables, ref stackVariableCount, CBinaryOperator.Mul); break;
                 case Code.Div_Un:
-                case Code.Div: EmitBinaryOperation(CBinaryOperator.Div); break;
+                case Code.Div: EmitBinaryOperation(ref stackVariables, ref stackVariableCount, CBinaryOperator.Div); break;
                 case Code.Rem_Un:
-                case Code.Rem: EmitBinaryOperation(CBinaryOperator.Mod); break;
+                case Code.Rem: EmitBinaryOperation(ref stackVariables, ref stackVariableCount, CBinaryOperator.Mod); break;
                 case Code.Ldc_I4_S:
-                case Code.Ldc_I4: EmitLdcI4(new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
-                case Code.Ldc_I4_M1: EmitLdcI4(Utils.IntM1); break;
-                case Code.Ldc_I4_0: EmitLdcI4(Utils.Int0); break;
-                case Code.Ldc_I4_1: EmitLdcI4(Utils.Int1); break;
-                case Code.Ldc_I4_2: EmitLdcI4(Utils.Int2); break;
-                case Code.Ldc_I4_3: EmitLdcI4(Utils.Int3); break;
-                case Code.Ldc_I4_4: EmitLdcI4(Utils.Int4); break;
-                case Code.Ldc_I4_5: EmitLdcI4(Utils.Int5); break;
-                case Code.Ldc_I4_6: EmitLdcI4(Utils.Int6); break;
-                case Code.Ldc_I4_7: EmitLdcI4(Utils.Int7); break;
-                case Code.Ldc_I4_8: EmitLdcI4(Utils.Int8); break;
+                case Code.Ldc_I4: EmitLdcI4(ref stackVariables, ref stackVariableCount, new CConstantInt(Convert.ToInt32(instruction.Operand))); break;
+                case Code.Ldc_I4_M1: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.IntM1); break;
+                case Code.Ldc_I4_0: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int0); break;
+                case Code.Ldc_I4_1: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int1); break;
+                case Code.Ldc_I4_2: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int2); break;
+                case Code.Ldc_I4_3: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int3); break;
+                case Code.Ldc_I4_4: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int4); break;
+                case Code.Ldc_I4_5: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int5); break;
+                case Code.Ldc_I4_6: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int6); break;
+                case Code.Ldc_I4_7: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int7); break;
+                case Code.Ldc_I4_8: EmitLdcI4(ref stackVariables, ref stackVariableCount, Utils.Int8); break;
                 case Code.Ldc_I8:
                 {
                     var value = new CConstantLong(Convert.ToInt64(instruction.Operand));
-                    var variable = new CVariable(true, false, Utils.Int64, NewStackVariableName());
+                    var variable = new CVariable(true, false, Utils.Int64, NewStackVariableName(ref stackVariableCount));
 
                     _builder.AddVariable(variable, value);
-                    _stackVariables.Push(variable);
+                    stackVariables.Push(variable);
                     break;
                 }
-                case Code.Conv_I: EmitConv(Utils.IntPtr); break;
-                case Code.Conv_I1: EmitConv(Utils.SByte); break;
-                case Code.Conv_I2: EmitConv(Utils.Int16); break;
-                case Code.Conv_I4: EmitConv(Utils.Int32); break;
-                case Code.Conv_I8: EmitConv(Utils.Int64); break;
-                case Code.Conv_U: EmitConv(Utils.UIntPtr); break;
-                case Code.Conv_U1: EmitConv(Utils.Byte); break;
-                case Code.Conv_U2: EmitConv(Utils.UInt16); break;
-                case Code.Conv_U4: EmitConv(Utils.UInt32); break;
-                case Code.Conv_U8: EmitConv(Utils.UInt64); break;
-                case Code.Ldloc: EmitLdloc((ushort)((Local)instruction.Operand).Index); break;
-                case Code.Ldloc_0: EmitLdloc(0); break;
-                case Code.Ldloc_1: EmitLdloc(1); break;
-                case Code.Ldloc_2: EmitLdloc(2); break;
-                case Code.Ldloc_3: EmitLdloc(3); break;
-                case Code.Stloc: EmitStloc((ushort)((Local)instruction.Operand).Index); break;
-                case Code.Stloc_0: EmitStloc(0); break;
-                case Code.Stloc_1: EmitStloc(1); break;
-                case Code.Stloc_2: EmitStloc(2); break;
-                case Code.Stloc_3: EmitStloc(3); break;
+                case Code.Conv_I: EmitConv(ref stackVariables, ref stackVariableCount, Utils.IntPtr); break;
+                case Code.Conv_I1: EmitConv(ref stackVariables, ref stackVariableCount, Utils.SByte); break;
+                case Code.Conv_I2: EmitConv(ref stackVariables, ref stackVariableCount, Utils.Int16); break;
+                case Code.Conv_I4: EmitConv(ref stackVariables, ref stackVariableCount, Utils.Int32); break;
+                case Code.Conv_I8: EmitConv(ref stackVariables, ref stackVariableCount, Utils.Int64); break;
+                case Code.Conv_U: EmitConv(ref stackVariables, ref stackVariableCount, Utils.UIntPtr); break;
+                case Code.Conv_U1: EmitConv(ref stackVariables, ref stackVariableCount, Utils.Byte); break;
+                case Code.Conv_U2: EmitConv(ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
+                case Code.Conv_U4: EmitConv(ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
+                case Code.Conv_U8: EmitConv(ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
+                case Code.Ldloc: EmitLdloc(ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
+                case Code.Ldloc_0: EmitLdloc(ref stackVariables, ref stackVariableCount, variables[0]); break;
+                case Code.Ldloc_1: EmitLdloc(ref stackVariables, ref stackVariableCount, variables[1]); break;
+                case Code.Ldloc_2: EmitLdloc(ref stackVariables, ref stackVariableCount, variables[2]); break;
+                case Code.Ldloc_3: EmitLdloc(ref stackVariables, ref stackVariableCount, variables[3]); break;
+                case Code.Stloc: EmitStloc(ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
+                case Code.Stloc_0: EmitStloc(ref stackVariables, ref stackVariableCount, variables[0]); break;
+                case Code.Stloc_1: EmitStloc(ref stackVariables, ref stackVariableCount, variables[1]); break;
+                case Code.Stloc_2: EmitStloc(ref stackVariables, ref stackVariableCount, variables[2]); break;
+                case Code.Stloc_3: EmitStloc(ref stackVariables, ref stackVariableCount, variables[3]); break;
                 // The documentation says Stind operands are signed, but that makes no sense so we're making them unsigned
-                case Code.Stind_I1: EmitStind(Utils.Byte); break;
-                case Code.Stind_I2: EmitStind(Utils.UInt16); break;
-                case Code.Stind_I4: EmitStind(Utils.UInt32); break;
-                case Code.Stind_I8: EmitStind(Utils.UInt64); break;
-                case Code.Ceq: EmitCmp(CCompareOperator.Equal); break;
+                case Code.Stind_I1: EmitStind(ref stackVariables, ref stackVariableCount, Utils.Byte); break;
+                case Code.Stind_I2: EmitStind(ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
+                case Code.Stind_I4: EmitStind(ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
+                case Code.Stind_I8: EmitStind(ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
+                case Code.Ceq: EmitCmp(ref stackVariables, ref stackVariableCount, CCompareOperator.Equal); break;
                 case Code.Cgt_Un:
-                case Code.Cgt: EmitCmp(CCompareOperator.Above); break;
+                case Code.Cgt: EmitCmp(ref stackVariables, ref stackVariableCount, CCompareOperator.Above); break;
                 case Code.Clt_Un:
-                case Code.Clt: EmitCmp(CCompareOperator.Below); break;
+                case Code.Clt: EmitCmp(ref stackVariables, ref stackVariableCount, CCompareOperator.Below); break;
                 case Code.Br_S:
                 case Code.Br:
                 {
@@ -268,29 +308,29 @@ public class Emitter
                     break;
                 }
                 case Code.Brtrue_S:
-                case Code.Brtrue: EmitCondBrEqual((Instruction)instruction.Operand, Utils.BoolTrue); break;
+                case Code.Brtrue: EmitCondBrEqual(ref stackVariables, (Instruction)instruction.Operand, Utils.BoolTrue); break;
                 case Code.Brfalse_S:
-                case Code.Brfalse: EmitCondBrEqual((Instruction)instruction.Operand, Utils.BoolFalse); break;
+                case Code.Brfalse: EmitCondBrEqual(ref stackVariables, (Instruction)instruction.Operand, Utils.BoolFalse); break;
                 case Code.Beq_S:
-                case Code.Beq: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Equal); break;
+                case Code.Beq: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.Equal); break;
                 case Code.Bge_S:
                 case Code.Bge_Un_S:
                 case Code.Bge_Un:
-                case Code.Bge: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.AboveOrEqual); break;
+                case Code.Bge: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.AboveOrEqual); break;
                 case Code.Bgt_S:
                 case Code.Bgt_Un_S:
                 case Code.Bgt_Un:
-                case Code.Bgt: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Above); break;
+                case Code.Bgt: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.Above); break;
                 case Code.Ble_S:
                 case Code.Ble_Un_S:
                 case Code.Ble_Un:
-                case Code.Ble: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.BelowOrEqual); break;
+                case Code.Ble: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.BelowOrEqual); break;
                 case Code.Blt_S:
                 case Code.Blt_Un_S:
                 case Code.Blt_Un:
-                case Code.Blt: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.Below); break;
+                case Code.Blt: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.Below); break;
                 case Code.Bne_Un_S:
-                case Code.Bne_Un: EmitCmpBr((Instruction)instruction.Operand, CCompareOperator.NotEqual); break;
+                case Code.Bne_Un: EmitCmpBr(ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.NotEqual); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -323,10 +363,18 @@ public class Emitter
 
     #region Helpers
 
-    private void EmitBinaryOperation(CBinaryOperator op)
+    private static CExpression GetConstantValue(object value) => value switch
     {
-        var value2 = _stackVariables.Pop();
-        var value1 = _stackVariables.Pop();
+        bool b => new CConstantBool(b),
+        int or byte => new CConstantInt(Convert.ToInt32(value)),
+        long l => new CConstantLong(l),
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+    };
+
+    private void EmitBinaryOperation(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CBinaryOperator op)
+    {
+        var value2 = stackVariables.Pop();
+        var value1 = stackVariables.Pop();
         var actualValue1 = new CDot(value1, "value");
         var actualValue2 = new CDot(value2, "value");
         var type = op switch
@@ -348,85 +396,82 @@ public class Emitter
             {"value", result}
         };
         var structValue = new CStructInitialization(values);
-        var variable = new CVariable(true, false, type, NewStackVariableName());
+        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, new CBlock(structValue));
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitLdcI4(CConstantInt value)
+    private void EmitLdcI4(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CConstantInt value)
     {
         var values = new Dictionary<string, CExpression>
         {
             {"value", value}
         };
         var structValue = new CStructInitialization(values);
-        var variable = new CVariable(true, false, Utils.Int32, NewStackVariableName());
+        var variable = new CVariable(true, false, Utils.Int32, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, new CBlock(structValue));
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitLdloc(ushort index)
+    private void EmitLdloc(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
     {
-        var localVariable = _variables[index];
-        var variable = new CVariable(true, localVariable.IsPointer, localVariable.Type, NewStackVariableName());
+        var variable = new CVariable(true, localVariable.IsPointer, localVariable.Type, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, localVariable);
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitLdarg(CVariable argument)
+    private void EmitLdarg(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable argument)
     {
-        var variable = new CVariable(true, argument.IsPointer, argument.Type, NewStackVariableName());
+        var variable = new CVariable(true, argument.IsPointer, argument.Type, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, argument);
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitStloc(ushort index)
+    private void EmitStloc(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
     {
-        var variable = _variables[index];
-        var currentValue = _stackVariables.Peek();
+        var currentValue = stackVariables.Peek();
+        if (localVariable.Type != currentValue.Type) EmitConv(ref stackVariables, ref stackVariableCount, localVariable.Type);
 
-        if (variable.Type != currentValue.Type) EmitConv(variable.Type);
-
-        var value = _stackVariables.Pop();
-        _builder.SetValueExpression(variable, value);
+        var value = stackVariables.Pop();
+        _builder.SetValueExpression(localVariable, value);
     }
 
-    private void EmitConv(CType type)
+    private void EmitConv(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
     {
-        var value = _stackVariables.Pop();
+        var value = stackVariables.Pop();
         var actualValue = new CDot(value, "value");
         var values = new Dictionary<string, CExpression>
         {
             {"value", actualValue}
         };
         var structValue = new CStructInitialization(values);
-        var variable = new CVariable(true, false, type, NewStackVariableName());
+        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, new CBlock(structValue));
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitStind(CType type)
+    private void EmitStind(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
     {
-        var currentValue = _stackVariables.Peek();
-        if (currentValue.Type != type) EmitConv(type);
+        var currentValue = stackVariables.Peek();
+        if (currentValue.Type != type) EmitConv(ref stackVariables, ref stackVariableCount, type);
 
-        var value = _stackVariables.Pop();
-        var address = _stackVariables.Pop();
+        var value = stackVariables.Pop();
+        var address = stackVariables.Pop();
         var actualAddress = new CDot(address, "value");
         var pointer = new CPointer(new CCast(false, true, type, actualAddress));
 
         _builder.SetValueExpression(pointer, value);
     }
 
-    private void EmitCmp(CCompareOperator op)
+    private void EmitCmp(ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CCompareOperator op)
     {
-        var value2 = _stackVariables.Pop();
-        var value1 = _stackVariables.Pop();
+        var value2 = stackVariables.Pop();
+        var value1 = stackVariables.Pop();
         var actualValue1 = new CDot(value1, "value");
         var actualValue2 = new CDot(value2, "value");
         var result = new CCompareOperation(actualValue1, op, actualValue2);
@@ -435,15 +480,15 @@ public class Emitter
             {"value", result}
         };
         var structValue = new CStructInitialization(values);
-        var variable = new CVariable(true, false, Utils.Boolean, NewStackVariableName());
+        var variable = new CVariable(true, false, Utils.Boolean, NewStackVariableName(ref stackVariableCount));
 
         _builder.AddVariable(variable, new CBlock(structValue));
-        _stackVariables.Push(variable);
+        stackVariables.Push(variable);
     }
 
-    private void EmitCondBrEqual(Instruction targetInstruction, CExpression compareValue)
+    private void EmitCondBrEqual(ref Stack<CVariable> stackVariables, Instruction targetInstruction, CExpression compareValue)
     {
-        var value = _stackVariables.Pop();
+        var value = stackVariables.Pop();
         var actualValue = new CDot(value, "value");
         var compare = new CCompareOperation(actualValue, CCompareOperator.Equal, compareValue);
 
@@ -453,10 +498,10 @@ public class Emitter
         _builder.EndBlock();
     }
 
-    private void EmitCmpBr(Instruction targetInstruction, CCompareOperator op)
+    private void EmitCmpBr(ref Stack<CVariable> stackVariables, Instruction targetInstruction, CCompareOperator op)
     {
-        var value2 = _stackVariables.Pop();
-        var value1 = _stackVariables.Pop();
+        var value2 = stackVariables.Pop();
+        var value1 = stackVariables.Pop();
         var actualValue1 = new CDot(value1, "value");
         var actualValue2 = new CDot(value2, "value");
         var compare = new CCompareOperation(actualValue1, op, actualValue2);
@@ -467,7 +512,7 @@ public class Emitter
         _builder.EndBlock();
     }
 
-    private string NewStackVariableName() => $"stack{_stackVariableCount++}";
+    private static string NewStackVariableName(ref uint stackVariableCount) => $"stack{stackVariableCount++}";
 
     #endregion
 }
