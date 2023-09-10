@@ -14,6 +14,8 @@ public abstract class CBuilder
         EnableComments = enableComments;
     }
 
+    public abstract CBuilder Clone();
+
     public abstract void Append(CBuilder builder);
 
     public void AddComment(string text)

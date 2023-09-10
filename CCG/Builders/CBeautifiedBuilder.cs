@@ -19,6 +19,8 @@ public class CBeautifiedBuilder : CBuilder
 
     public override string ToString() => _builder.ToString();
 
+    public override CBuilder Clone() => new CBeautifiedBuilder(false, EnableComments);
+
     public override void Append(CBuilder builder) => _builder.Append(builder);
 
     #region Comments

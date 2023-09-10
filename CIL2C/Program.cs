@@ -43,10 +43,7 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting type: {type.FullName}");
 
-            CBuilder cBuilder = minify
-                ? new CMinifiedBuilder(false, toggleComments)
-                : new CBeautifiedBuilder(false, toggleComments);
-
+            var cBuilder = builder.Clone();
             var cType = Emitter.EmitType(ref cBuilder, type, out var signature);
             cTypes.TryAdd(type.FullName, cType);
 
@@ -73,10 +70,7 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method definition: {method.FullName}");
 
-            CBuilder cBuilder = minify
-                ? new CMinifiedBuilder(false, toggleComments)
-                : new CBeautifiedBuilder(false, toggleComments);
-
+            var cBuilder = builder.Clone();
             Emitter.EmitMethodDefinition(ref cBuilder, ref cTypes, method);
 
             lock (builder) builder.Append(cBuilder);
@@ -91,10 +85,7 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting field: {field.FullName}");
 
-            CBuilder cBuilder = minify
-                ? new CMinifiedBuilder(false, toggleComments)
-                : new CBeautifiedBuilder(false, toggleComments);
-
+            var cBuilder = builder.Clone();
             var variable = Emitter.EmitField(ref cBuilder, ref cTypes, field);
             cFields.TryAdd(field.FullName, variable);
 
@@ -108,10 +99,7 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method: {method.FullName}.");
 
-            CBuilder cBuilder = minify
-                ? new CMinifiedBuilder(false, toggleComments)
-                : new CBeautifiedBuilder(false, toggleComments);
-
+            var cBuilder = builder.Clone();
             Emitter.EmitMethod(ref cBuilder, ref cTypes, ref cFields, method);
 
             lock (builder) builder.Append(cBuilder);

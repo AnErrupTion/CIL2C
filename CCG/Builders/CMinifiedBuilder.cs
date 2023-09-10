@@ -17,6 +17,8 @@ public class CMinifiedBuilder : CBuilder
 
     public override string ToString() => _builder.ToString();
 
+    public override CBuilder Clone() => new CMinifiedBuilder(false, EnableComments);
+
     public override void Append(CBuilder builder) => _builder.Append(builder);
 
     #region Comments
