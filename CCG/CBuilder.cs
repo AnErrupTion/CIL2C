@@ -4,9 +4,17 @@ namespace CCG;
 
 public abstract class CBuilder
 {
-    public bool EnableComments { get; set; }
+    public bool AddRequiredIncludes { get; }
 
-    protected CBuilder(bool enableComments) => EnableComments = enableComments;
+    public bool EnableComments { get; }
+
+    protected CBuilder(bool addRequiredIncludes, bool enableComments)
+    {
+        AddRequiredIncludes = addRequiredIncludes;
+        EnableComments = enableComments;
+    }
+
+    public abstract void Append(CBuilder builder);
 
     public void AddComment(string text)
     {

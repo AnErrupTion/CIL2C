@@ -25,9 +25,9 @@ public static class Program
 
         if (settings.Verbose) Console.WriteLine("Loaded input file.");
 
-        var builder = new StringBuilder();
-        builder.AppendLine("#include <stdint.h>");
-        builder.AppendLine("#include <stdbool.h>");
+        CBuilder builder = minify
+            ? new CMinifiedBuilder(true, toggleComments)
+            : new CBeautifiedBuilder(true, toggleComments);
 
         var fields = new ConcurrentBag<FieldDef>();
         var methods = new ConcurrentBag<MethodDef>();
@@ -40,7 +40,9 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting type: {type.FullName}");
 
-            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments);
+            CBuilder cBuilder = minify
+                ? new CMinifiedBuilder(false, toggleComments)
+                : new CBeautifiedBuilder(false, toggleComments);
 
             var cType = Emitter.EmitType(ref cBuilder, type, out var signature);
             cTypes.TryAdd(type.FullName, cType);
@@ -68,7 +70,10 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method definition: {method.FullName}");
 
-            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+            CBuilder cBuilder = minify
+                ? new CMinifiedBuilder(false, toggleComments)
+                : new CBeautifiedBuilder(false, toggleComments);
+
             Emitter.EmitMethodDefinition(ref cBuilder, ref cTypes, method);
 
             lock (builder) builder.Append(cBuilder);
@@ -83,7 +88,9 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting field: {field.FullName}");
 
-            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+            CBuilder cBuilder = minify
+                ? new CMinifiedBuilder(false, toggleComments)
+                : new CBeautifiedBuilder(false, toggleComments);
 
             var variable = Emitter.EmitField(ref cBuilder, ref cTypes, field);
             cFields.TryAdd(field.FullName, variable);
@@ -98,19 +105,17 @@ public static class Program
         {
             if (settings.Verbose) Console.WriteLine($"Emitting method: {method.FullName}.");
 
-            CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
+            CBuilder cBuilder = minify
+                ? new CMinifiedBuilder(false, toggleComments)
+                : new CBeautifiedBuilder(false, toggleComments);
+
             Emitter.EmitMethod(ref cBuilder, ref cTypes, ref cFields, method);
 
             lock (builder) builder.Append(cBuilder);
         });
 
         if (settings.Verbose) Console.WriteLine("Emitting main function.");
-
-        CBuilder cBuilder = minify ? new CMinifiedBuilder(toggleComments) : new CBeautifiedBuilder(toggleComments); 
-        Emitter.EmitMainFunction(ref cBuilder, module.EntryPoint, ref staticConstructors);
-
-        builder.Append(cBuilder);
-
+        Emitter.EmitMainFunction(ref builder, module.EntryPoint, ref staticConstructors);
         if (settings.Verbose) Console.WriteLine("Emitted main function.");
 
         File.WriteAllText(settings.OutputFile, builder.ToString());

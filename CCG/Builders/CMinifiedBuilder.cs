@@ -7,10 +7,17 @@ public class CMinifiedBuilder : CBuilder
 {
     private readonly StringBuilder _builder = new();
 
+    public CMinifiedBuilder(bool addRequiredIncludes, bool enableComments = false) : base(addRequiredIncludes, enableComments)
+    {
+        if (!addRequiredIncludes) return;
+
+        _builder.AppendLine("#include <stdint.h>");
+        _builder.AppendLine("#include <stdbool.h>");
+    }
+
     public override string ToString() => _builder.ToString();
 
-    public CMinifiedBuilder(bool enableComments = false) : base(enableComments)
-    { }
+    public override void Append(CBuilder builder) => _builder.Append(builder);
 
     #region Comments
 

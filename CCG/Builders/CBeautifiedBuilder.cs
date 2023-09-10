@@ -9,10 +9,17 @@ public class CBeautifiedBuilder : CBuilder
 
     private uint _tabs;
 
-    public CBeautifiedBuilder(bool enableComments = true) : base(enableComments)
-    { }
+    public CBeautifiedBuilder(bool addRequiredIncludes, bool enableComments = true) : base(addRequiredIncludes, enableComments)
+    {
+        if (!addRequiredIncludes) return;
+
+        _builder.AppendLine("#include <stdint.h>");
+        _builder.AppendLine("#include <stdbool.h>");
+    }
 
     public override string ToString() => _builder.ToString();
+
+    public override void Append(CBuilder builder) => _builder.Append(builder);
 
     #region Comments
 
