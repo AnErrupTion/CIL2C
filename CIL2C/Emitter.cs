@@ -17,31 +17,30 @@ public static class Emitter
 
         if (type is { IsClass: true, IsEnum: false })
         {
-            builder.AddStruct(safeName);
-            builder.BeginBlock();
+            var structFields = new List<CStructField>();
 
-            /*if (type is { IsClass: true, IsValueType: false })
+            /*if (!type.IsValueType)
             {
-                _builder.AddVariable(new CVariable(false, false, Utils.Object, "header"));
+                structFields.Add(new CStructField(Utils.Object, "header"));
             }*/
 
             switch (name)
             {
-                case "System.Char": builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
-                case "System.Boolean": builder.AddVariable(new CVariable(false, false, CType.Boolean, "value")); break;
-                case "System.SByte": builder.AddVariable(new CVariable(false, false, CType.Int8, "value")); break;
-                case "System.Int16": builder.AddVariable(new CVariable(false, false, CType.Int16, "value")); break;
-                case "System.Int32": builder.AddVariable(new CVariable(false, false, CType.Int32, "value")); break;
-                case "System.Int64": builder.AddVariable(new CVariable(false, false, CType.Int64, "value")); break;
-                case "System.Byte": builder.AddVariable(new CVariable(false, false, CType.UInt8, "value")); break;
-                case "System.UInt16": builder.AddVariable(new CVariable(false, false, CType.UInt16, "value")); break;
-                case "System.UInt32": builder.AddVariable(new CVariable(false, false, CType.UInt32, "value")); break;
-                case "System.UInt64": builder.AddVariable(new CVariable(false, false, CType.UInt64, "value")); break;
-                case "System.IntPtr": builder.AddVariable(new CVariable(false, false, CType.IntPtr, "value")); break;
-                case "System.UIntPtr": builder.AddVariable(new CVariable(false, false, CType.UIntPtr, "value")); break;
+                case "System.Char": structFields.Add(new CStructField(false, CType.UInt16, "value")); break;
+                case "System.Boolean": structFields.Add(new CStructField(false, CType.Boolean, "value")); break;
+                case "System.SByte": structFields.Add(new CStructField(false, CType.Int8, "value")); break;
+                case "System.Int16": structFields.Add(new CStructField(false, CType.Int16, "value")); break;
+                case "System.Int32": structFields.Add(new CStructField(false, CType.Int32, "value")); break;
+                case "System.Int64": structFields.Add(new CStructField(false, CType.Int64, "value")); break;
+                case "System.Byte": structFields.Add(new CStructField(false, CType.UInt8, "value")); break;
+                case "System.UInt16": structFields.Add(new CStructField(false, CType.UInt16, "value")); break;
+                case "System.UInt32": structFields.Add(new CStructField(false, CType.UInt32, "value")); break;
+                case "System.UInt64": structFields.Add(new CStructField(false, CType.UInt64, "value")); break;
+                case "System.IntPtr": structFields.Add(new CStructField(false, CType.IntPtr, "value")); break;
+                case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
             }
 
-            builder.EndBlock();
+            builder.AddStruct(safeName, false, structFields.ToArray());
 
             return new CType(safeName, true);
         }

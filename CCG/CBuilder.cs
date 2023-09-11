@@ -38,9 +38,9 @@ public abstract class CBuilder
 
     public abstract void SetValueExpression(CExpression expression, CExpression value);
 
-    public abstract void AddStruct(string name);
+    public abstract void AddStruct(string name, bool pack, params CStructField[] fields);
 
-    public abstract void AddEnum(string name, params CEnumField[] values);
+    public abstract void AddEnum(string name, params CEnumField[] fields);
 
     public abstract void AddFunction(CType returnType, string name, bool isPrototype, params CVariable[] args);
 

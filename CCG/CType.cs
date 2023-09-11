@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace CCG;
 
 public sealed class CType
@@ -28,14 +26,5 @@ public sealed class CType
         IsEnum = isEnum;
     }
 
-    public override string ToString()
-    {
-        var builder = new StringBuilder();
-
-        if (IsStruct) builder.Append("struct ");
-        else if (IsEnum) builder.Append("enum ");
-        builder.Append(Name);
-
-        return builder.ToString();
-    }
+    public override string ToString() => Name;
 }

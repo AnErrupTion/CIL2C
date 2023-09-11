@@ -109,36 +109,56 @@ public class CMinifiedBuilder : CBuilder
 
     #region Structs
 
-    public override void AddStruct(string name)
+    public override void AddStruct(string name, bool pack, params CStructField[] fields)
     {
-        _builder.Append("struct ");
+        _builder.Append("typedef struct ");
         _builder.Append(name);
+        _builder.Append('{');
+
+        foreach (var field in fields)
+        {
+            _builder.Append(field.Type);
+            if (field.IsPointer) _builder.Append('*');
+            _builder.Append(' ');
+            _builder.Append(field.Name);
+            _builder.Append(';');
+        }
+
+        _builder.Append('}');
+
+        if (pack) _builder.Append("__attribute__((__packed__)) ");
+
+        _builder.Append(name);
+        _builder.Append(';');
     }
 
     #endregion
 
     #region Enums
 
-    public override void AddEnum(string name, params CEnumField[] values)
+    public override void AddEnum(string name, params CEnumField[] fields)
     {
-        _builder.Append("enum ");
+        _builder.Append("typedef enum ");
         _builder.Append(name);
+        _builder.Append('{');
 
-        BeginBlock();
-        for (var i = 0; i < values.Length; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
-            var value = values[i];
-            _builder.Append(value.Name);
+            var field = fields[i];
+            _builder.Append(field.Name);
 
-            if (value.Value != null)
+            if (field.Value != null)
             {
                 _builder.Append('=');
-                _builder.Append(value.Value.ToString());
+                _builder.Append(field.Value.ToString());
             }
 
-            if (i != values.Length - 1) _builder.Append(',');
+            if (i != fields.Length - 1) _builder.Append(',');
         }
-        EndBlock();
+
+        _builder.Append('}');
+        _builder.Append(name);
+        _builder.Append(';');
     }
 
     #endregion

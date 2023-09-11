@@ -132,42 +132,71 @@ public class CBeautifiedBuilder : CBuilder
 
     #region Structs
 
-    public override void AddStruct(string name)
+    public override void AddStruct(string name, bool pack, params CStructField[] fields)
     {
         for (var i = 0; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append("struct ");
+        _builder.Append("typedef struct ");
         _builder.AppendLine(name);
+        _builder.Append('{');
+        _builder.AppendLine();
+        _tabs++;
+
+        foreach (var field in fields)
+        {
+            for (var i = 0; i < _tabs; i++) _builder.Append('\t');
+
+            _builder.Append(field.Type);
+            if (field.IsPointer) _builder.Append(" *");
+            _builder.Append(' ');
+            _builder.Append(field.Name);
+            _builder.Append(';');
+            _builder.AppendLine();
+        }
+
+        _tabs--;
+        _builder.Append("} ");
+
+        if (pack) _builder.Append("__attribute__((__packed__)) ");
+
+        _builder.Append(name);
+        _builder.Append(';');
+        _builder.AppendLine();
     }
 
     #endregion
 
     #region Enums
 
-    public override void AddEnum(string name, params CEnumField[] values)
+    public override void AddEnum(string name, params CEnumField[] fields)
     {
         for (var i = 0; i < _tabs; i++) _builder.Append('\t');
-        _builder.Append("enum ");
+        _builder.Append("typedef enum ");
         _builder.AppendLine(name);
+        _builder.Append('{');
+        _builder.AppendLine();
 
-        BeginBlock();
-        for (var i = 0; i < values.Length; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
             for (var j = 0; j < _tabs; j++) _builder.Append('\t');
 
-            var value = values[i];
-            _builder.Append(value.Name);
+            var field = fields[i];
+            _builder.Append(field.Name);
 
-            if (value.Value != null)
+            if (field.Value != null)
             {
                 _builder.Append(" = ");
-                _builder.Append(value.Value.ToStringBeautified());
+                _builder.Append(field.Value.ToStringBeautified());
             }
 
-            if (i != values.Length - 1) _builder.Append(',');
+            if (i != fields.Length - 1) _builder.Append(',');
 
             _builder.AppendLine();
         }
-        EndBlock();
+
+        _builder.Append("} ");
+        _builder.Append(name);
+        _builder.Append(';');
+        _builder.AppendLine();
     }
 
     #endregion
