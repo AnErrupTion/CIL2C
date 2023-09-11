@@ -16,6 +16,9 @@ public static class Program
                 *buffer++ = (byte)(Add(i, 2) - 1);
                 *buffer++ = 15;
             }
+
+            *buffer++ = *(byte*)0xB8000;
+            *buffer = 15;
         }
 
         while (true)

@@ -296,7 +296,14 @@ public static class Emitter
                 case Code.Stloc_1: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[1]); break;
                 case Code.Stloc_2: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[2]); break;
                 case Code.Stloc_3: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[3]); break;
-                // The documentation says Stind operands are signed, but that makes no sense so we're making them unsigned
+                // The documentation says Ldind and Stind operands are signed, but that makes no sense so we're making them unsigned
+                case Code.Ldind_I1:
+                case Code.Ldind_U1: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.Byte); break;
+                case Code.Ldind_I2:
+                case Code.Ldind_U2: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
+                case Code.Ldind_I4:
+                case Code.Ldind_U4: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
+                case Code.Ldind_I8: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
                 case Code.Stind_I1: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.Byte); break;
                 case Code.Stind_I2: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
                 case Code.Stind_I4: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
@@ -373,8 +380,8 @@ public static class Emitter
     {
         var name = type.FullName;
 
-        if (name.EndsWith('*')) return Utils.IntPtr;
-        if (name.EndsWith("[]")) return Utils.UIntPtr;
+        // The documentation says pointers are native int, but that doesn't make sense since addresses can't be unsigned
+        if (name.EndsWith('*') || name.EndsWith("[]")) return Utils.UIntPtr;
         if (types.TryGetValue(name, out var value)) return value;
 
         throw new ArgumentOutOfRangeException(nameof(name), name, null);
@@ -478,6 +485,17 @@ public static class Emitter
         var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
         builder.AddVariable(variable, new CBlock(structValue));
+        stackVariables.Push(variable);
+    }
+
+    private static void EmitLdind(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
+    {
+        var address = stackVariables.Pop();
+        var actualAddress = new CDot(address, "value");
+        var pointer = new CPointer(new CCast(false, true, type, actualAddress));
+        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
+
+        builder.AddVariable(variable, pointer);
         stackVariables.Push(variable);
     }
 
