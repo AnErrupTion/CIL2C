@@ -13,7 +13,7 @@ public static class Program
             var buffer = (byte*)0xB8000;
             for (var i = StartChar; i <= EndChar; i++)
             {
-                *buffer++ = (byte)(Add(i, 2) - 1);
+                *buffer++ = (byte)(Add(i) - 1);
                 *buffer++ = 15;
             }
 
@@ -25,5 +25,9 @@ public static class Program
         { }
     }
 
-    private static byte Add(byte a, byte b) => (byte)(a + b);
+    private static byte Add(byte a, byte b = 0)
+    {
+        b = 2;
+        return (byte)(a + b);
+    }
 }

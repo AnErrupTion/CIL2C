@@ -178,11 +178,24 @@ public static class Emitter
             {
                 case Code.Nop: break;
                 case Code.Dup: stackVariables.Push(stackVariables.Peek()); break;
-                case Code.Ldarg: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[Convert.ToUInt16(instruction.Operand)]); break;
+                case Code.Pop: stackVariables.Pop(); break;
+                case Code.Ldarg: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[((Parameter)instruction.Operand).Index]); break;
                 case Code.Ldarg_0: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[0]); break;
                 case Code.Ldarg_1: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[1]); break;
                 case Code.Ldarg_2: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[2]); break;
                 case Code.Ldarg_3: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[3]); break;
+                case Code.Starg_S:
+                case Code.Starg:
+                {
+                    var argument = functionArguments[((Parameter)instruction.Operand).Index];
+
+                    var currentValue = stackVariables.Peek();
+                    if (currentValue.Type != argument.Type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, argument.Type);
+
+                    var value = stackVariables.Pop();
+                    builder.SetValueExpression(argument, value);
+                    break;
+                }
                 case Code.Ldsfld:
                 {
                     var targetField = (FieldDef)instruction.Operand;
