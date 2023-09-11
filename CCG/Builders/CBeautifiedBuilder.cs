@@ -13,6 +13,7 @@ public class CBeautifiedBuilder : CBuilder
     {
         if (!addRequiredIncludes) return;
 
+        _builder.AppendLine("#include <stddef.h>");
         _builder.AppendLine("#include <stdint.h>");
         _builder.AppendLine("#include <stdbool.h>");
     }
@@ -174,6 +175,7 @@ public class CBeautifiedBuilder : CBuilder
         _builder.AppendLine(name);
         _builder.Append('{');
         _builder.AppendLine();
+        _tabs++;
 
         for (var i = 0; i < fields.Length; i++)
         {
@@ -193,6 +195,7 @@ public class CBeautifiedBuilder : CBuilder
             _builder.AppendLine();
         }
 
+        _tabs--;
         _builder.Append("} ");
         _builder.Append(name);
         _builder.Append(';');

@@ -11,6 +11,7 @@ public class CMinifiedBuilder : CBuilder
     {
         if (!addRequiredIncludes) return;
 
+        _builder.AppendLine("#include <stddef.h>");
         _builder.AppendLine("#include <stdint.h>");
         _builder.AppendLine("#include <stdbool.h>");
     }

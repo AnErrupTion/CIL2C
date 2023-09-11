@@ -25,7 +25,10 @@ public static class Program
         var stopwatch = Stopwatch.StartNew();
 
         if (settings.Verbose) Console.WriteLine($"Loading input file: {settings.InputFile}");
+
         var module = ModuleDefMD.Load(settings.InputFile);
+        var types = module.GetTypes().ToArray();
+
         if (settings.Verbose) Console.WriteLine("Loaded input file.");
 
         CBuilder builder = minify
@@ -40,7 +43,7 @@ public static class Program
         var cTypes = new ConcurrentDictionary<string, CType>();
         builder.AddComment("Types");
 
-        Parallel.ForEach(module.Types, parallelOptions, type =>
+        Parallel.ForEach(types, parallelOptions, type =>
         {
             if (settings.Verbose) Console.WriteLine($"Emitting type: {type.FullName}");
 
@@ -66,7 +69,7 @@ public static class Program
             }
         });
 
-        if (settings.Verbose) Console.WriteLine($"Emitted {module.Types.Count} types, loaded {fields.Count} fields and {methods.Count} methods.");
+        if (settings.Verbose) Console.WriteLine($"Emitted {types.Length} types, loaded {fields.Count} fields and {methods.Count} methods.");
 
         // Then, emit the method definitions
         builder.AddComment("Method definitions");

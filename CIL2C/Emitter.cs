@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using CCG;
 using CCG.Expressions;
 using dnlib.DotNet;
@@ -17,6 +18,27 @@ public static class Emitter
 
         if (type is { IsClass: true, IsEnum: false })
         {
+            var packStruct = false;
+            
+            foreach (var attribute in type.CustomAttributes)
+            {
+                switch (attribute.TypeFullName)
+                {
+                    case "System.Runtime.InteropServices.StructLayoutAttribute":
+                    {
+                        var layoutKind = attribute.GetProperty("Value");
+                        if ((LayoutKind)layoutKind.Value == LayoutKind.Explicit)
+                        {
+                            throw new ArgumentException("Explicit layouts in structs aren't supported!", nameof(layoutKind));
+                        }
+
+                        var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
+                        packStruct = pack == 1;
+                        break;
+                    }
+                }
+            }
+
             var structFields = new List<CStructField>();
 
             /*if (!type.IsValueType)
@@ -40,7 +62,7 @@ public static class Emitter
                 case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
             }
 
-            builder.AddStruct(safeName, false, structFields.ToArray());
+            builder.AddStruct(safeName, packStruct, structFields.ToArray());
 
             return new CType(safeName, true);
         }
@@ -178,6 +200,7 @@ public static class Emitter
                 case Code.Nop: break;
                 case Code.Dup: stackVariables.Push(stackVariables.Peek()); break;
                 case Code.Pop: stackVariables.Pop(); break;
+                case Code.Ldarg_S:
                 case Code.Ldarg: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[((Parameter)instruction.Operand).Index]); break;
                 case Code.Ldarg_0: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[0]); break;
                 case Code.Ldarg_1: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[1]); break;
@@ -219,11 +242,13 @@ public static class Emitter
                 case Code.Conv_U2: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
                 case Code.Conv_U4: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
                 case Code.Conv_U8: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
+                case Code.Ldloc_S:
                 case Code.Ldloc: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
                 case Code.Ldloc_0: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[0]); break;
                 case Code.Ldloc_1: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[1]); break;
                 case Code.Ldloc_2: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[2]); break;
                 case Code.Ldloc_3: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[3]); break;
+                case Code.Stloc_S:
                 case Code.Stloc: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
                 case Code.Stloc_0: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[0]); break;
                 case Code.Stloc_1: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[1]); break;
@@ -272,6 +297,7 @@ public static class Emitter
                 case Code.Blt: EmitCmpBr(ref builder, ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.Below); break;
                 case Code.Bne_Un_S:
                 case Code.Bne_Un: EmitCmpBr(ref builder, ref stackVariables, (Instruction)instruction.Operand, CCompareOperator.NotEqual); break;
+                case Code.Sizeof: EmitSizeof(ref builder, ref stackVariables, ref stackVariableCount, (TypeDef)instruction.Operand); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -331,7 +357,9 @@ public static class Emitter
         long l => new CConstantLong(l),
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
     };
-    
+
+    private static string NewStackVariableName(ref uint stackVariableCount) => $"stack{stackVariableCount++}";
+
     #endregion
 
     #region Instructions
@@ -569,7 +597,19 @@ public static class Emitter
         builder.EndBlock();
     }
 
-    private static string NewStackVariableName(ref uint stackVariableCount) => $"stack{stackVariableCount++}";
+    private static void EmitSizeof(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, TypeDef type)
+    {
+        var sizeOf = new CSizeOf(Utils.GetSafeName(type.FullName));
+        var values = new Dictionary<string, CExpression>
+        {
+            {"value", sizeOf}
+        };
+        var structValue = new CStructInitialization(values);
+        var variable = new CVariable(true, false, Utils.UInt32, NewStackVariableName(ref stackVariableCount));
+
+        builder.AddVariable(variable, new CBlock(structValue));
+        stackVariables.Push(variable);
+    }
 
     #endregion
 }

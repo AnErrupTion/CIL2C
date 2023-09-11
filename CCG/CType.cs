@@ -14,6 +14,8 @@ public sealed class CType
     public static readonly CType UInt64 = new("uint64_t");
     public static readonly CType IntPtr = new("intptr_t");
     public static readonly CType UIntPtr = new("uintptr_t");
+    public static readonly CType Size = new("size_t");
+    public static readonly CType USize = new("usize_t");
 
     public readonly string Name;
     public readonly bool IsStruct;

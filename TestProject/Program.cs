@@ -1,4 +1,6 @@
-﻿namespace TestProject;
+﻿using System.Runtime.InteropServices;
+
+namespace TestProject;
 
 public static class Program
 {
@@ -6,19 +8,32 @@ public static class Program
 
     private const byte EndChar = 68;
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct VgaChar
+    {
+        public byte Char;
+        public byte Color;
+    }
+
     public static void Main()
     {
         unsafe
         {
-            var buffer = (byte*)0xB8000;
+            var buffer = (VgaChar*)0xB8000;
             for (var i = StartChar; i <= EndChar; i++)
             {
-                *buffer++ = (byte)(Add(i) - 1);
-                *buffer++ = 15;
+                *buffer++ = new VgaChar
+                {
+                    Char = (byte)(Add(i) - 1),
+                    Color = 15
+                };
             }
 
-            *buffer++ = *(byte*)0xB8000;
-            *buffer = 15;
+            *buffer = new VgaChar
+            {
+                Char = *(byte*)0xB8000,
+                Color = 15
+            };
         }
 
         while (true)
