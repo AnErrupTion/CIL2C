@@ -242,6 +242,8 @@ public static class Emitter
                 case Code.Conv_U2: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
                 case Code.Conv_U4: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
                 case Code.Conv_U8: EmitConv(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
+                case Code.Ldloca_S:
+                case Code.Ldloca: EmitLdloca(ref builder, ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
                 case Code.Ldloc_S:
                 case Code.Ldloc: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[((Local)instruction.Operand).Index]); break;
                 case Code.Ldloc_0: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, variables[0]); break;
@@ -413,6 +415,21 @@ public static class Emitter
         var variable = new CVariable(true, false, Utils.Int64, NewStackVariableName(ref stackVariableCount));
 
         builder.AddVariable(variable, value);
+        stackVariables.Push(variable);
+    }
+
+    private static void EmitLdloca(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
+    {
+        var addressOf = new CAddressOf(localVariable);
+        var cast = new CCast(true, false, CType.UIntPtr, addressOf);
+        var values = new Dictionary<string, CExpression>
+        {
+            {"value", cast}
+        };
+        var structValue = new CStructInitialization(values);
+        var variable = new CVariable(true, false, Utils.UIntPtr, NewStackVariableName(ref stackVariableCount));
+
+        builder.AddVariable(variable, new CBlock(structValue));
         stackVariables.Push(variable);
     }
 
