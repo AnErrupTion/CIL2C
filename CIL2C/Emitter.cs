@@ -26,10 +26,11 @@ public static class Emitter
                 {
                     case "System.Runtime.InteropServices.StructLayoutAttribute":
                     {
-                        var layoutKind = attribute.GetProperty("Value");
-                        if ((LayoutKind)layoutKind.Value == LayoutKind.Explicit)
+                        var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
+                        if (layoutKind == LayoutKind.Explicit)
                         {
-                            throw new ArgumentException("Explicit layouts in structs aren't supported!", nameof(layoutKind));
+                            // TODO
+                            throw new NotImplementedException("Explicit layouts in structs aren't supported!");
                         }
 
                         var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
@@ -41,6 +42,7 @@ public static class Emitter
 
             var structFields = new List<CStructField>();
 
+            // TODO
             /*if (!type.IsValueType)
             {
                 structFields.Add(new CStructField(Utils.Object, "header"));
@@ -62,9 +64,9 @@ public static class Emitter
                 case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
             }
 
-            builder.AddStruct(safeName, packStruct, structFields.ToArray());
-
-            return new CType(safeName, true);
+            var fields = structFields.ToArray();
+            builder.AddStruct(safeName, packStruct, fields);
+            return new CType(safeName, true, structFields: fields);
         }
 
         if (type.IsEnum)
@@ -76,14 +78,14 @@ public static class Emitter
                 if (field.FieldType.FullName != signature.FullName) continue;
 
                 var fieldSafeName = Utils.GetSafeName(field.FullName);
-                var fieldValue = GetConstantValue(field.Constant.Value);
+                var fieldValue = GetConstantValue(field.Constant.Value, false);
 
                 enumFields.Add(new CEnumField(fieldSafeName, fieldValue));
             }
 
-            builder.AddEnum(safeName, enumFields.ToArray());
-
-            return new CType(safeName, false, true);
+            var fields = enumFields.ToArray();
+            builder.AddEnum(safeName, fields);
+            return new CType(safeName, false, true, enumFields: fields);
         }
 
         throw new ArgumentException(null, nameof(type));
@@ -95,21 +97,7 @@ public static class Emitter
         var name = Utils.GetSafeName(field.FullName);
         var variable = new CVariable(field.HasConstant, false, type, name);
 
-        if (field.HasConstant)
-        {
-            var constantValue = GetConstantValue(field.Constant.Value);
-            if (type.IsStruct)
-            {
-                var values = new Dictionary<string, CExpression>
-                {
-                    {"value", constantValue}
-                };
-                var structValue = new CStructInitialization(values);
-                var value = new CBlock(structValue);
-
-                builder.AddVariable(variable, value);
-            } else builder.AddVariable(variable, constantValue);
-        }
+        if (field.HasConstant) builder.AddVariable(variable, GetConstantValue(field.Constant.Value, true));
         else builder.AddVariable(variable);
 
         return variable;
@@ -175,14 +163,16 @@ public static class Emitter
         var stackVariableCount = 0U;
 
         builder.AddComment("Locals");
-        // TODO: Init locals
         for (var i = 0; i < method.Body.Variables.Count; i++)
         {
             var local = method.Body.Variables[i];
+            var type = GetCType(ref types, local.Type);
             var name = string.IsNullOrEmpty(local.Name) ? $"local{i}" : local.Name;
-            var variable = new CVariable(false, false, GetCType(ref types, local.Type), name);
+            var variable = new CVariable(false, false, type, name);
 
-            builder.AddVariable(variable);
+            if (method.Body.InitLocals) builder.AddVariable(variable, GetDefaultValue(type));
+            else builder.AddVariable(variable);
+
             variables.Add(variable);
         }
 
@@ -352,13 +342,50 @@ public static class Emitter
         return Utils.Int32;
     }
 
-    private static CExpression GetConstantValue(object value) => value switch
+    private static CExpression GetDefaultValue(CType type)
     {
-        bool b => new CConstantBool(b),
-        int or byte => new CConstantInt(Convert.ToInt32(value)),
-        long l => new CConstantLong(l),
+        if (type == Utils.Boolean) return CreateStruct(new CConstantBool(false));
+        if (type == Utils.SByte
+            || type == Utils.Int16
+            || type == Utils.Int32
+            || type == Utils.Int64
+            || type == Utils.Byte
+            || type == Utils.UInt16
+            || type == Utils.UInt32
+            || type == Utils.UInt64
+            || type == Utils.IntPtr
+            || type == Utils.UIntPtr
+            ) return CreateStruct(new CConstantInt(0));
+
+        if (!type.IsStruct || type.StructFields is null) throw new ArgumentOutOfRangeException(nameof(type), type, null);
+
+        var values = new Dictionary<string, CExpression>();
+        foreach (var field in type.StructFields) values.Add(field.Name, GetDefaultValue(field.Type));
+
+        var structValue = new CStructInitialization(values);
+        return new CBlock(structValue);
+    }
+
+    private static CExpression GetConstantValue(object value, bool createStruct) => value switch
+    {
+        bool u1 => createStruct ? CreateStruct(new CConstantBool(u1)) : new CConstantBool(u1),
+        int i32 => createStruct ? CreateStruct(new CConstantInt(i32)) : new CConstantInt(i32),
+        byte u8 => createStruct ? CreateStruct(new CConstantInt(u8)) : new CConstantInt(u8),
+        long i64 => createStruct ? CreateStruct(new CConstantLong(i64)) : new CConstantLong(i64),
+        // TODO
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
     };
+
+    private static CExpression CreateStruct(CExpression value)
+    {
+        var values = new Dictionary<string, CExpression>
+        {
+            {"value", value}
+        };
+        var structValue = new CStructInitialization(values);
+
+        return new CBlock(structValue);
+    }
 
     private static string NewStackVariableName(ref uint stackVariableCount) => $"stack{stackVariableCount++}";
 
@@ -380,33 +407,24 @@ public static class Emitter
                 or CBinaryOperator.Div
                 or CBinaryOperator.Mod
                 => GetBinaryNumericOperationType(value1.Type, value2.Type),
-            CBinaryOperator.And => throw new Exception(),
-            CBinaryOperator.Or => throw new Exception(),
-            CBinaryOperator.Xor => throw new Exception(),
+            // TODO
+            CBinaryOperator.And => throw new NotImplementedException(),
+            CBinaryOperator.Or => throw new NotImplementedException(),
+            CBinaryOperator.Xor => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
         };
         var result = new CBinaryOperation(actualValue1, op, actualValue2);
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", result}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(result));
         stackVariables.Push(variable);
     }
 
     private static void EmitLdcI4(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CConstantInt value)
     {
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", value}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, Utils.Int32, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(value));
         stackVariables.Push(variable);
     }
 
@@ -422,14 +440,9 @@ public static class Emitter
     {
         var addressOf = new CAddressOf(localVariable);
         var cast = new CCast(true, false, CType.UIntPtr, addressOf);
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", cast}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, Utils.UIntPtr, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(cast));
         stackVariables.Push(variable);
     }
 
@@ -532,14 +545,9 @@ public static class Emitter
     {
         var value = stackVariables.Pop();
         var actualValue = new CDot(value, "value");
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", actualValue}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(actualValue));
         stackVariables.Push(variable);
     }
 
@@ -574,14 +582,9 @@ public static class Emitter
         var actualValue1 = new CDot(value1, "value");
         var actualValue2 = new CDot(value2, "value");
         var result = new CCompareOperation(actualValue1, op, actualValue2);
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", result}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, Utils.Boolean, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(result));
         stackVariables.Push(variable);
     }
 
@@ -617,14 +620,9 @@ public static class Emitter
     private static void EmitSizeof(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, TypeDef type)
     {
         var sizeOf = new CSizeOf(Utils.GetSafeName(type.FullName));
-        var values = new Dictionary<string, CExpression>
-        {
-            {"value", sizeOf}
-        };
-        var structValue = new CStructInitialization(values);
         var variable = new CVariable(true, false, Utils.UInt32, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, new CBlock(structValue));
+        builder.AddVariable(variable, CreateStruct(sizeOf));
         stackVariables.Push(variable);
     }
 

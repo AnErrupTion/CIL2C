@@ -63,6 +63,7 @@ public static class Program
 
             foreach (var method in type.Methods)
             {
+                // TODO: Remove this line once we can emit the needed opcodes (newarr, stfld, ldfld)
                 if (!method.IsStaticConstructor && method.DeclaringType.FullName != module.EntryPoint.DeclaringType.FullName) continue;
                 if (method.IsStaticConstructor) staticConstructors.Add(method);
                 methods.Add(method);
