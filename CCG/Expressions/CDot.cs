@@ -6,11 +6,13 @@ public sealed class CDot : CExpression
 {
     public readonly CExpression Expression;
     public readonly string Name;
+    public readonly bool IsPointer;
 
-    public CDot(CExpression expression, string name)
+    public CDot(CExpression expression, string name, bool isPointer = false)
     {
         Expression = expression;
         Name = name;
+        IsPointer = isPointer;
     }
 
     public override string ToString()
@@ -18,7 +20,7 @@ public sealed class CDot : CExpression
         var builder = new StringBuilder();
 
         builder.Append(Expression.ToString());
-        builder.Append('.');
+        if (IsPointer) builder.Append("->"); else builder.Append('.');
         builder.Append(Name);
 
         return builder.ToString();
@@ -29,7 +31,7 @@ public sealed class CDot : CExpression
         var builder = new StringBuilder();
 
         builder.Append(Expression.ToStringBeautified());
-        builder.Append('.');
+        if (IsPointer) builder.Append("->"); else builder.Append('.');
         builder.Append(Name);
 
         return builder.ToString();

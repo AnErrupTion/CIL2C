@@ -9,7 +9,10 @@ namespace CIL2C;
 
 public static class Emitter
 {
-    public static CType EmitType(ref CBuilder builder, TypeDef type, out TypeSig signature)
+    public static CType EmitType(
+        ref CBuilder builder,
+        TypeDef type,
+        out TypeSig signature)
     {
         signature = type.ToTypeSig();
 
@@ -19,7 +22,7 @@ public static class Emitter
         if (type is { IsClass: true, IsEnum: false })
         {
             var packStruct = false;
-            
+
             foreach (var attribute in type.CustomAttributes)
             {
                 switch (attribute.TypeFullName)
@@ -64,6 +67,14 @@ public static class Emitter
                 case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
             }
 
+            /*foreach (var field in type.Fields)
+            {
+                if (field.IsStatic) continue;
+
+                var cType = GetCType(ref types, field.FieldType);
+                structFields.Add(new CStructField(false, cType, field.Name));
+            }*/
+
             var fields = structFields.ToArray();
             builder.AddStruct(safeName, packStruct, fields);
             return new CType(safeName, true, structFields: fields);
@@ -91,7 +102,10 @@ public static class Emitter
         throw new ArgumentException(null, nameof(type));
     }
 
-    public static CVariable EmitField(ref CBuilder builder, ref ConcurrentDictionary<string, CType> types, FieldDef field)
+    public static CVariable EmitField(
+        ref CBuilder builder,
+        ref ConcurrentDictionary<string, CType> types,
+        FieldDef field)
     {
         var type = GetCType(ref types, field.FieldType);
         var name = Utils.GetSafeName(field.FullName);
@@ -103,7 +117,10 @@ public static class Emitter
         return variable;
     }
 
-    public static void EmitMethodDefinition(ref CBuilder builder, ref ConcurrentDictionary<string, CType> types, MethodDef method)
+    public static void EmitMethodDefinition(
+        ref CBuilder builder,
+        ref ConcurrentDictionary<string, CType> types,
+        MethodDef method)
     {
         var type = GetCType(ref types, method.ReturnType);
         var safeName = Utils.GetSafeName(method.FullName);
@@ -132,7 +149,11 @@ public static class Emitter
      * be the CIL evaluation stack. At runtime (so in the C code), those stack values are actually constant variables,
      * which allows them to be more easily and more efficiently optimized by the C compiler.
      */
-    public static void EmitMethod(ref CBuilder builder, ref ConcurrentDictionary<string, CType> types, ref ConcurrentDictionary<string, CVariable> fields, MethodDef method)
+    public static void EmitMethod(
+        ref CBuilder builder,
+        ref ConcurrentDictionary<string, CType> types,
+        ref ConcurrentDictionary<string, CVariable> fields,
+        MethodDef method)
     {
         var functionType = GetCType(ref types, method.ReturnType);
         var safeName = Utils.GetSafeName(method.FullName);
@@ -200,6 +221,7 @@ public static class Emitter
                 case Code.Starg: EmitStarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[((Parameter)instruction.Operand).Index]); break;
                 case Code.Ldsfld: EmitLdsfld(ref fields, ref stackVariables, (FieldDef)instruction.Operand); break;
                 case Code.Stsfld: EmitStsfld(ref fields, ref builder, ref stackVariables, ref stackVariableCount, (FieldDef)instruction.Operand); break;
+                case Code.Stfld: EmitStfld(ref types, ref builder, ref stackVariables, ref stackVariableCount, (FieldDef)instruction.Operand); break;
                 case Code.Call: EmitCall(ref types, ref builder, ref stackVariables, ref stackVariableCount, (MethodDef)instruction.Operand); break;
                 case Code.Ret: EmitRet(ref builder, ref stackVariables, ref stackVariableCount); break;
                 case Code.Add: EmitBinaryOperation(ref builder, ref stackVariables, ref stackVariableCount, CBinaryOperator.Add); break;
@@ -246,7 +268,8 @@ public static class Emitter
                 case Code.Stloc_1: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[1]); break;
                 case Code.Stloc_2: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[2]); break;
                 case Code.Stloc_3: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, variables[3]); break;
-                // The documentation says Ldind and Stind operands are signed, but that makes no sense so we're making them unsigned
+                case Code.Stobj: EmitStobj(ref builder, ref stackVariables, (TypeDef)instruction.Operand); break;
+                // The documentation says ldind.i and stind operands are signed, but that makes no sense so we're making them unsigned
                 case Code.Ldind_I1:
                 case Code.Ldind_U1: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.Byte); break;
                 case Code.Ldind_I2:
@@ -305,7 +328,10 @@ public static class Emitter
      * This method emits the C entry point of the program. It should call all static constructors, then call the CIL
      * program's entry point.
      */
-    public static void EmitMainFunction(ref CBuilder builder, MethodDef entryPoint, ref ConcurrentBag<MethodDef> staticConstructors)
+    public static void EmitMainFunction(
+        ref CBuilder builder,
+        MethodDef entryPoint,
+        ref ConcurrentBag<MethodDef> staticConstructors)
     {
         builder.AddFunction(CType.Int32, "main", false);
         builder.BeginBlock();
@@ -393,7 +419,11 @@ public static class Emitter
 
     #region Instructions
 
-    private static void EmitBinaryOperation(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CBinaryOperator op)
+    private static void EmitBinaryOperation(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CBinaryOperator op)
     {
         var value2 = stackVariables.Pop();
         var value1 = stackVariables.Pop();
@@ -420,7 +450,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdcI4(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CConstantInt value)
+    private static void EmitLdcI4(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CConstantInt value)
     {
         var variable = new CVariable(true, false, Utils.Int32, NewStackVariableName(ref stackVariableCount));
 
@@ -428,7 +462,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdcI8(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CConstantLong value)
+    private static void EmitLdcI8(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CConstantLong value)
     {
         var variable = new CVariable(true, false, Utils.Int64, NewStackVariableName(ref stackVariableCount));
 
@@ -436,7 +474,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdloca(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
+    private static void EmitLdloca(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CVariable localVariable)
     {
         var addressOf = new CAddressOf(localVariable);
         var cast = new CCast(true, false, CType.UIntPtr, addressOf);
@@ -446,7 +488,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdloc(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
+    private static void EmitLdloc(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CVariable localVariable)
     {
         var variable = new CVariable(true, localVariable.IsPointer, localVariable.Type, NewStackVariableName(ref stackVariableCount));
 
@@ -454,7 +500,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdarg(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable argument)
+    private static void EmitLdarg(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CVariable argument)
     {
         var variable = new CVariable(true, argument.IsPointer, argument.Type, NewStackVariableName(ref stackVariableCount));
 
@@ -462,7 +512,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitStarg(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable argument)
+    private static void EmitStarg(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CVariable argument)
     {
         var currentValue = stackVariables.Peek();
         if (currentValue.Type != argument.Type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, argument.Type);
@@ -471,14 +525,22 @@ public static class Emitter
         builder.SetValueExpression(argument, value);
     }
 
-    private static void EmitLdsfld(ref ConcurrentDictionary<string, CVariable> fields, ref Stack<CVariable> stackVariables, FieldDef field)
+    private static void EmitLdsfld(
+        ref ConcurrentDictionary<string, CVariable> fields,
+        ref Stack<CVariable> stackVariables,
+        FieldDef field)
     {
         if (!fields.TryGetValue(field.FullName, out var variable)) throw new KeyNotFoundException();
 
         stackVariables.Push(variable);
     }
 
-    private static void EmitStsfld(ref ConcurrentDictionary<string, CVariable> fields, ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, FieldDef field)
+    private static void EmitStsfld(
+        ref ConcurrentDictionary<string, CVariable> fields,
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        FieldDef field)
     {
         if (!fields.TryGetValue(field.FullName, out var variable)) throw new KeyNotFoundException();
 
@@ -489,7 +551,41 @@ public static class Emitter
         builder.SetValueExpression(variable, value);
     }
 
-    private static void EmitCall(ref ConcurrentDictionary<string, CType> types, ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, MethodDef method)
+    private static void EmitStfld(
+        ref ConcurrentDictionary<string, CType> types,
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        FieldDef field)
+    {
+        var declaringCType = GetCType(ref types, field.DeclaringType.ToTypeSig());
+        var cType = GetCType(ref types, field.FieldType);
+
+        var currentValue = stackVariables.Peek();
+        if (currentValue.Type != cType) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, cType);
+
+        var value = stackVariables.Pop();
+        var classObject = stackVariables.Pop();
+
+        if (classObject.Type == Utils.UIntPtr) // We have a pointer
+        {
+            var actualAddress = new CDot(classObject, "value");
+            var cast = new CCast(false, true, declaringCType, actualAddress);
+
+            builder.SetValueExpression(new CDot(cast, field.Name, true), value);
+        }
+        else // We have an object reference (a struct)
+        {
+            builder.SetValueExpression(new CDot(classObject, field.Name), value);
+        }
+    }
+
+    private static void EmitCall(
+        ref ConcurrentDictionary<string, CType> types,
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        MethodDef method)
     {
         var arguments = new CExpression[method.Parameters.Count];
         // We're adding arguments in reverse order because we're popping from the stack (last to first)
@@ -516,7 +612,10 @@ public static class Emitter
         } else builder.AddCall(call);
     }
 
-    private static void EmitRet(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount)
+    private static void EmitRet(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount)
     {
         if (stackVariables.Count > 0)
         {
@@ -532,7 +631,11 @@ public static class Emitter
         }
     }
 
-    private static void EmitStloc(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CVariable localVariable)
+    private static void EmitStloc(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CVariable localVariable)
     {
         var currentValue = stackVariables.Peek();
         if (localVariable.Type != currentValue.Type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, localVariable.Type);
@@ -541,7 +644,27 @@ public static class Emitter
         builder.SetValueExpression(localVariable, value);
     }
 
-    private static void EmitConv(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
+    private static void EmitStobj(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        TypeDef classType)
+    {
+        var value = stackVariables.Pop();
+        var address = stackVariables.Pop();
+        var valueAddress = new CAddressOf(value);
+        var source = new CCast(true, true, CType.Void, valueAddress);
+        var actualAddress = new CDot(address, "value");
+        var destination = new CCast(false, true, CType.Void, actualAddress);
+        var size = new CSizeOf(Utils.GetSafeName(classType.FullName));
+
+        builder.AddCall(new CCall("memcpy", destination, source, size));
+    }
+
+    private static void EmitConv(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CType type)
     {
         var value = stackVariables.Pop();
         var actualValue = new CDot(value, "value");
@@ -551,7 +674,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitLdind(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
+    private static void EmitLdind(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CType type)
     {
         var address = stackVariables.Pop();
         var actualAddress = new CDot(address, "value");
@@ -562,7 +689,11 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitStind(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CType type)
+    private static void EmitStind(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CType type)
     {
         var currentValue = stackVariables.Peek();
         if (currentValue.Type != type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, type);
@@ -575,7 +706,11 @@ public static class Emitter
         builder.SetValueExpression(pointer, value);
     }
 
-    private static void EmitCmp(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, CCompareOperator op)
+    private static void EmitCmp(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        CCompareOperator op)
     {
         var value2 = stackVariables.Pop();
         var value1 = stackVariables.Pop();
@@ -588,10 +723,15 @@ public static class Emitter
         stackVariables.Push(variable);
     }
 
-    private static void EmitBr(ref CBuilder builder, Instruction instruction)
-        => builder.GoToLabel($"IL_{instruction.Offset:X4}");
+    private static void EmitBr(
+        ref CBuilder builder,
+        Instruction instruction) => builder.GoToLabel($"IL_{instruction.Offset:X4}");
 
-    private static void EmitCondBrEqual(ref CBuilder builder, ref Stack<CVariable> stackVariables, Instruction targetInstruction, CExpression compareValue)
+    private static void EmitCondBrEqual(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        Instruction targetInstruction,
+        CExpression compareValue)
     {
         var value = stackVariables.Pop();
         var actualValue = new CDot(value, "value");
@@ -603,7 +743,11 @@ public static class Emitter
         builder.EndBlock();
     }
 
-    private static void EmitCmpBr(ref CBuilder builder, ref Stack<CVariable> stackVariables, Instruction targetInstruction, CCompareOperator op)
+    private static void EmitCmpBr(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        Instruction targetInstruction,
+        CCompareOperator op)
     {
         var value2 = stackVariables.Pop();
         var value1 = stackVariables.Pop();
@@ -617,7 +761,11 @@ public static class Emitter
         builder.EndBlock();
     }
 
-    private static void EmitSizeof(ref CBuilder builder, ref Stack<CVariable> stackVariables, ref uint stackVariableCount, TypeDef type)
+    private static void EmitSizeof(
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        TypeDef type)
     {
         var sizeOf = new CSizeOf(Utils.GetSafeName(type.FullName));
         var variable = new CVariable(true, false, Utils.UInt32, NewStackVariableName(ref stackVariableCount));

@@ -12,7 +12,7 @@ public sealed class CPointer : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append("*(");
+        builder.Append("(*");
         builder.Append(Value.ToString());
         builder.Append(')');
 
@@ -23,7 +23,7 @@ public sealed class CPointer : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append("*(");
+        builder.Append("(*");
         builder.Append(Value.ToStringBeautified());
         builder.Append(')');
 

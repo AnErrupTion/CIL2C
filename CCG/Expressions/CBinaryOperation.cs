@@ -21,9 +21,7 @@ public sealed class CBinaryOperation : CExpression
 
         builder.Append('(');
         builder.Append(Left.ToString());
-        builder.Append(')');
         builder.Append(CUtils.GetBinaryOperator(Operator));
-        builder.Append('(');
         builder.Append(Right.ToString());
         builder.Append(')');
 
@@ -36,9 +34,9 @@ public sealed class CBinaryOperation : CExpression
 
         builder.Append('(');
         builder.Append(Left.ToStringBeautified());
-        builder.Append(") ");
+        builder.Append(' ');
         builder.Append(CUtils.GetBinaryOperator(Operator));
-        builder.Append(" (");
+        builder.Append(' ');
         builder.Append(Right.ToStringBeautified());
         builder.Append(')');
 

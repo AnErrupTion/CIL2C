@@ -13,6 +13,10 @@ public class Settings
     [NotNull]
     public string? OutputFile { get; set; }
 
+    [Option('n', "includes", Separator = ':', Required = false, HelpText = "Includes custom header files in the C code.")]
+    [NotNull]
+    public IEnumerable<string>? Includes { get; set; }
+
     [Option('m', "minify", Required = false, HelpText = "Minifies the C code.")]
     public bool Minify { get; set; }
 

@@ -23,7 +23,7 @@ public sealed class CAddressOf : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append("& (");
+        builder.Append("&(");
         builder.Append(Expression.ToStringBeautified());
         builder.Append(')');
 

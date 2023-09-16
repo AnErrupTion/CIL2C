@@ -23,7 +23,7 @@ public sealed class CSizeOf : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append("sizeof (");
+        builder.Append("sizeof(");
         builder.Append(Name);
         builder.Append(')');
 

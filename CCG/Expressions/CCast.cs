@@ -21,12 +21,13 @@ public sealed class CCast : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append('(');
+        builder.Append("((");
         if (IsConst) builder.Append("const ");
         builder.Append(Type);
         if (IsPointer) builder.Append('*');
         builder.Append(')');
         builder.Append(Value.ToString());
+        builder.Append(')');
 
         return builder.ToString();
     }
@@ -35,12 +36,13 @@ public sealed class CCast : CExpression
     {
         var builder = new StringBuilder();
 
-        builder.Append('(');
+        builder.Append("((");
         if (IsConst) builder.Append("const ");
         builder.Append(Type);
         if (IsPointer) builder.Append(" *");
         builder.Append(") ");
         builder.Append(Value.ToStringBeautified());
+        builder.Append(')');
 
         return builder.ToString();
     }

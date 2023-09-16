@@ -35,6 +35,8 @@ public static class Program
             ? new CMinifiedBuilder(true, toggleComments)
             : new CBeautifiedBuilder(true, toggleComments);
 
+        foreach (var include in settings.Includes) builder.AddInclude(include);
+
         var fields = new ConcurrentBag<FieldDef>();
         var methods = new ConcurrentBag<MethodDef>();
         var staticConstructors = new ConcurrentBag<MethodDef>();
