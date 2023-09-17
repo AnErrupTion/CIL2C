@@ -36,7 +36,7 @@ public static class Program
         foreach (var include in settings.Includes) builder.AddInclude(include);
         foreach (var externalInclude in cilModule.ExternalIncludes) builder.AddInclude(externalInclude);
 
-        // First, emit the types (and load all fields and methods on the way)
+        // First, emit the types
         builder.AddComment("Types");
 
         Parallel.ForEach(cilModule.Types, parallelOptions, type =>
@@ -81,7 +81,7 @@ public static class Program
             lock (builder) builder.Append(cBuilder);
         });
 
-        // And finally, emit the actual method bodies
+        // Finally, emit the actual method bodies
         builder.AddComment("Methods");
 
         Parallel.ForEach(cilModule.AllBodiedMethods, parallelOptions, method =>

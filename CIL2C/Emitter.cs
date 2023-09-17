@@ -27,7 +27,6 @@ public static class Emitter
                 var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
                 if (layoutKind == LayoutKind.Explicit)
                 {
-                    // TODO
                     throw new NotImplementedException("Explicit layouts in structs aren't supported!");
                 }
 
@@ -39,11 +38,10 @@ public static class Emitter
 
             var structFields = new List<CStructField>();
 
-            // TODO
-            /*if (!type.IsValueType)
+            if (!type.IsStruct)
             {
-                structFields.Add(new CStructField(Utils.Object, "header"));
-            }*/
+                structFields.Add(new CStructField(false, CType.UIntPtr, "methodTable"));
+            }
 
             switch (name)
             {
@@ -159,7 +157,22 @@ public static class Emitter
                 arguments[i] = ConvertValue(ref builder, ref methodVariableCount, functionArgument, cType, false);
             }
 
-            builder.AddCall(new CCall(method.ExternalCFunctionName, arguments));
+            var call = new CCall(method.ExternalCFunctionName, arguments);
+
+            if (method.ReturnType.CType != Utils.Void)
+            {
+                var value = CreateStruct(call);
+
+                builder.AddReturn(new CCast(true, false, method.ReturnType.CType, value));
+            }
+            else
+            {
+                var value = new CBlock(null);
+
+                builder.AddCall(call);
+                builder.AddReturn(new CCast(true, false, Utils.Void, value));
+            }
+            
             builder.EndBlock();
             return;
         }
@@ -217,7 +230,7 @@ public static class Emitter
                 case Code.Ldfld: EmitLdfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Stfld: EmitStfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Call: EmitCall(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((MethodDef)instruction.Operand).FullName); break;
-                case Code.Ret: EmitRet(ref builder, ref stackVariables, ref stackVariableCount); break;
+                case Code.Ret: EmitRet(ref builder, ref stackVariables); break;
                 case Code.Add: EmitBinaryOperation(ref builder, ref stackVariables, ref stackVariableCount, CBinaryOperator.Add); break;
                 case Code.Sub: EmitBinaryOperation(ref builder, ref stackVariables, ref stackVariableCount, CBinaryOperator.Sub); break;
                 case Code.Mul: EmitBinaryOperation(ref builder, ref stackVariables, ref stackVariableCount, CBinaryOperator.Mul); break;
@@ -395,8 +408,7 @@ public static class Emitter
         int i32 => createStruct ? CreateStruct(new CConstantInt(i32)) : new CConstantInt(i32),
         byte u8 => createStruct ? CreateStruct(new CConstantInt(u8)) : new CConstantInt(u8),
         long i64 => createStruct ? CreateStruct(new CConstantLong(i64)) : new CConstantLong(i64),
-        // TODO
-        _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+        _ => throw new NotImplementedException()
     };
 
     private static CExpression CreateStruct(
@@ -476,7 +488,6 @@ public static class Emitter
                 or CBinaryOperator.Div
                 or CBinaryOperator.Mod
                 => GetBinaryNumericOperationType(value1.Type, value2.Type),
-            // TODO
             CBinaryOperator.And => throw new NotImplementedException(),
             CBinaryOperator.Or => throw new NotImplementedException(),
             CBinaryOperator.Xor => throw new NotImplementedException(),
@@ -692,8 +703,7 @@ public static class Emitter
 
     private static void EmitRet(
         ref CBuilder builder,
-        ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount
+        ref Stack<CVariable> stackVariables
     )
     {
         if (stackVariables.Count > 0)
@@ -703,10 +713,8 @@ public static class Emitter
         }
         else
         {
-            var variable = new CVariable(true, false, Utils.Void, NewStackVariableName(ref stackVariableCount));
-
-            builder.AddVariable(variable, new CBlock(null));
-            builder.AddReturn(variable);
+            var value = new CBlock(null);
+            builder.AddReturn(new CCast(true, false, Utils.Void, value));
         }
     }
 

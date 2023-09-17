@@ -75,7 +75,7 @@ public static class DnlibLoader
 
             foreach (var method in type.Methods)
             {
-                // TODO: Remove this line once we can emit the needed opcodes (newarr, stfld, ldfld)
+                // TODO: Remove this line once we can emit newarr
                 if (!method.IsStaticConstructor
                     && method.DeclaringType.FullName != moduleDef.EntryPoint.DeclaringType.FullName) continue;
 
