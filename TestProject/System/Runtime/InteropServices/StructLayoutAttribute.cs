@@ -1,7 +1,7 @@
 namespace System.Runtime.InteropServices;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
-public class StructLayoutAttribute : Attribute
+public sealed class StructLayoutAttribute : Attribute
 {
     public LayoutKind Value { get; }
 

@@ -5,7 +5,8 @@ public sealed record CilMethod(
     CilType ReturnType,
     string FullName,
     string Name,
-    bool IsStaticConstructor,
+    bool NeedsExternalCFunction,
+    string? ExternalCFunctionName,
     List<CilMethodArgument> Arguments,
-    CilMethodBody Body
+    CilMethodBody? Body
 );

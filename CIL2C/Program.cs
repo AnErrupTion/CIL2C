@@ -34,6 +34,7 @@ public static class Program
             : new CBeautifiedBuilder(true, toggleComments);
 
         foreach (var include in settings.Includes) builder.AddInclude(include);
+        foreach (var externalInclude in cilModule.ExternalIncludes) builder.AddInclude(externalInclude);
 
         // First, emit the types (and load all fields and methods on the way)
         builder.AddComment("Types");
@@ -83,7 +84,7 @@ public static class Program
         // And finally, emit the actual method bodies
         builder.AddComment("Methods");
 
-        Parallel.ForEach(cilModule.AllMethods, parallelOptions, method =>
+        Parallel.ForEach(cilModule.AllBodiedMethods, parallelOptions, method =>
         {
             logger.Info($"Emitting method: {method.Key}.");
 

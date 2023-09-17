@@ -11,11 +11,13 @@ public static class DnlibLoader
     {
         var moduleDefTypes = moduleDef.GetTypes().ToArray();
 
+        var externalIncludes = new List<string>();
         var types = new Dictionary<string, CilType>();
         var allStaticFields = new Dictionary<string, CilField>();
         var allStaticNonEnumFields = new Dictionary<string, CilField>();
         var allNonStaticFields = new Dictionary<string, CilField>();
         var allMethods = new Dictionary<string, CilMethod>();
+        var allBodiedMethods = new Dictionary<string, CilMethod>();
         var allStaticConstructors = new Dictionary<string, CilMethod>();
  
         CilMethod? entryPoint = null;
@@ -77,26 +79,51 @@ public static class DnlibLoader
                 if (!method.IsStaticConstructor
                     && method.DeclaringType.FullName != moduleDef.EntryPoint.DeclaringType.FullName) continue;
 
-                var cilLocals = new List<CilLocal>();
-                foreach (var variable in method.Body.Variables)
-                {
-                    var localType = GetCilType(ref types, variable.Type.FullName);
-                    var localName = string.IsNullOrEmpty(variable.Name) ? $"local{variable.Index}" : variable.Name;
-                    var local = new CilLocal(
-                        localType,
-                        new CVariable(false, false, localType.CType, localName)
-                    );
+                CilMethodBody? cilMethodBody = null;
+                var needsExternalCFunction = false;
+                string? externalCFunctionName = null;
 
-                    cilLocals.Add(local);
+                if (method.HasBody)
+                {
+                    var cilLocals = new List<CilLocal>();
+                    foreach (var variable in method.Body.Variables)
+                    {
+                        var localType = GetCilType(ref types, variable.Type.FullName);
+                        var localName = string.IsNullOrEmpty(variable.Name) ? $"local{variable.Index}" : variable.Name;
+                        var local = new CilLocal(
+                            localType,
+                            new CVariable(false, false, localType.CType, localName)
+                        );
+
+                        cilLocals.Add(local);
+                    }
+
+                    cilMethodBody = new CilMethodBody(
+                        method.Body.MaxStack,
+                        method.Body.InitLocals,
+                        cilLocals,
+                        method.Body.Instructions
+                    );
+                }
+                else
+                {
+                    foreach (var attribute in method.CustomAttributes)
+                    {
+                        if (!attribute.TypeFullName.EndsWith("CFunctionImportAttribute")) continue;
+
+                        var includeFile = Convert.ToString(attribute.GetField("IncludeFile").Value);
+                        var functionName = Convert.ToString(attribute.GetField("FunctionName").Value);
+
+                        if (includeFile is null || functionName is null) continue;
+
+                        needsExternalCFunction = true;
+                        externalCFunctionName = functionName;
+
+                        if (!externalIncludes.Contains(includeFile)) externalIncludes.Add(includeFile);
+                        break;
+                    }
                 }
 
-                var cilMethodBody = new CilMethodBody(
-                    method.Body.MaxStack,
-                    method.Body.InitLocals,
-                    cilLocals,
-                    method.Body.Instructions
-                );
-                
                 var cilMethodArguments = new List<CilMethodArgument>();
                 foreach (var parameter in method.Parameters)
                 {
@@ -114,13 +141,15 @@ public static class DnlibLoader
                     GetCilType(ref types, method.ReturnType.FullName),
                     Utils.GetSafeName(method.FullName),
                     Utils.GetSafeName(method.Name),
-                    method.IsStatic,
+                    needsExternalCFunction,
+                    externalCFunctionName,
                     cilMethodArguments,
                     cilMethodBody
                 );
 
                 if (method.FullName == moduleDef.EntryPoint.FullName) entryPoint = cilMethod;
                 if (method.IsStaticConstructor) allStaticConstructors.Add(method.FullName, cilMethod);
+                if (method.HasBody || needsExternalCFunction) allBodiedMethods.Add(method.FullName, cilMethod);
 
                 allMethods.Add(method.FullName, cilMethod);
             }
@@ -132,30 +161,25 @@ public static class DnlibLoader
             Utils.GetSafeName(moduleDef.FullName),
             moduleDef.Name,
             entryPoint,
+            externalIncludes,
             types,
             allStaticFields,
             allStaticNonEnumFields,
             allNonStaticFields,
             allMethods,
+            allBodiedMethods,
             allStaticConstructors
         );
     }
 
+    // The documentation says pointers are native int, but that doesn't make sense since addresses can't be negative
     private static CType GetCType(
         string fullName,
         string safeFullName
-    )
-    {
-        // The documentation says pointers are native int, but that doesn't make sense since addresses can't be unsigned
-        return fullName.EndsWith('*') || fullName.EndsWith("[]") ? Utils.UIntPtr : new CType(safeFullName);
-    }
+    ) => fullName.EndsWith('*') || fullName.EndsWith("[]") ? Utils.UIntPtr : new CType(safeFullName);
 
     private static CilType GetCilType(
         ref Dictionary<string, CilType> types,
         string fullName
-    )
-    {
-        // The documentation says pointers are native int, but that doesn't make sense since addresses can't be unsigned
-        return fullName.EndsWith('*') || fullName.EndsWith("[]") ? types["System.UIntPtr"] : types[fullName];
-    }
+    ) => fullName.EndsWith('*') || fullName.EndsWith("[]") ? types["System.UIntPtr"] : types[fullName];
 }

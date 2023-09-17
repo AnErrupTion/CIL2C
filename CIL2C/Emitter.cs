@@ -22,22 +22,19 @@ public static class Emitter
 
             foreach (var attribute in type.CustomAttributes)
             {
-                switch (attribute.TypeFullName)
-                {
-                    case "System.Runtime.InteropServices.StructLayoutAttribute":
-                    {
-                        var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
-                        if (layoutKind == LayoutKind.Explicit)
-                        {
-                            // TODO
-                            throw new NotImplementedException("Explicit layouts in structs aren't supported!");
-                        }
+                if (attribute.TypeFullName is not "System.Runtime.InteropServices.StructLayoutAttribute") continue;
 
-                        var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
-                        packStruct = pack == 1;
-                        break;
-                    }
+                var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
+                if (layoutKind == LayoutKind.Explicit)
+                {
+                    // TODO
+                    throw new NotImplementedException("Explicit layouts in structs aren't supported!");
                 }
+
+                var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
+                packStruct = pack == 1;
+
+                break;
             }
 
             var structFields = new List<CStructField>();
@@ -110,7 +107,6 @@ public static class Emitter
     )
     {
         var arguments = new CVariable[method.Arguments.Count];
-
         for (var i = 0; i < arguments.Length; i++)
         {
             var argument = method.Arguments[i];
@@ -146,6 +142,29 @@ public static class Emitter
             var argument = method.Arguments[i];
             functionArguments[i] = new CVariable(false, false, argument.Type.CType, argument.Name);
         }
+
+        if (method is { NeedsExternalCFunction: true, ExternalCFunctionName: not null })
+        {
+            builder.AddFunction(method.ReturnType.CType, method.FullName, false, functionArguments);
+            builder.BeginBlock();
+
+            var arguments = new CExpression[functionArguments.Length];
+            var methodVariableCount = 0U;
+
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                var functionArgument = functionArguments[i];
+                var cType = ToCType(functionArgument.Type);
+
+                arguments[i] = ConvertValue(ref builder, ref methodVariableCount, functionArgument, cType, false);
+            }
+
+            builder.AddCall(new CCall(method.ExternalCFunctionName, arguments));
+            builder.EndBlock();
+            return;
+        }
+
+        if (method.Body is null) throw new UnreachableException();
 
         var labels = new Dictionary<uint, string>();
         foreach (var instruction in method.Body.Instructions)
@@ -195,6 +214,7 @@ public static class Emitter
                 case Code.Starg: EmitStarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[((Parameter)instruction.Operand).Index]); break;
                 case Code.Ldsfld: EmitLdsfld(ref module, ref stackVariables, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Stsfld: EmitStsfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
+                case Code.Ldfld: EmitLdfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Stfld: EmitStfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Call: EmitCall(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((MethodDef)instruction.Operand).FullName); break;
                 case Code.Ret: EmitRet(ref builder, ref stackVariables, ref stackVariableCount); break;
@@ -371,6 +391,7 @@ public static class Emitter
     ) => value switch
     {
         bool u1 => createStruct ? CreateStruct(new CConstantBool(u1)) : new CConstantBool(u1),
+        ushort u16 => createStruct ? CreateStruct(new CConstantInt(u16)) : new CConstantInt(u16),
         int i32 => createStruct ? CreateStruct(new CConstantInt(i32)) : new CConstantInt(i32),
         byte u8 => createStruct ? CreateStruct(new CConstantInt(u8)) : new CConstantInt(u8),
         long i64 => createStruct ? CreateStruct(new CConstantLong(i64)) : new CConstantLong(i64),
@@ -389,6 +410,43 @@ public static class Emitter
         var structValue = new CStructInitialization(values);
 
         return new CBlock(structValue);
+    }
+
+    private static CVariable ConvertValue(
+        ref CBuilder builder,
+        ref uint stackVariableCount,
+        CExpression value,
+        CType type,
+        bool createStruct = true
+    )
+    {
+        var actualValue = new CDot(value, "value");
+        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
+
+        builder.AddVariable(variable, createStruct ? CreateStruct(actualValue) : actualValue);
+        return variable;
+    }
+
+    private static CType ToCType(
+        CType cilType
+    )
+    {
+        CType cType;
+
+        if (cilType == Utils.Boolean) cType = CType.Boolean;
+        else if (cilType == Utils.SByte) cType = CType.Int8;
+        else if (cilType == Utils.Int16) cType = CType.Int16;
+        else if (cilType == Utils.Int32) cType = CType.Int32;
+        else if (cilType == Utils.Int64) cType = CType.Int64;
+        else if (cilType == Utils.Byte) cType = CType.UInt8;
+        else if (cilType == Utils.UInt16) cType = CType.UInt16;
+        else if (cilType == Utils.UInt32) cType = CType.UInt32;
+        else if (cilType == Utils.UInt64) cType = CType.UInt64;
+        else if (cilType == Utils.IntPtr) cType = CType.IntPtr;
+        else if (cilType == Utils.UIntPtr) cType = CType.UIntPtr;
+        else throw new ArgumentOutOfRangeException(null, nameof(cilType));
+
+        return cType;
     }
 
     private static string NewStackVariableName(
@@ -540,6 +598,36 @@ public static class Emitter
         builder.SetValueExpression(cilField.Definition, value);
     }
 
+    private static void EmitLdfld(
+        ref CilModule module,
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        ref uint stackVariableCount,
+        string fieldName
+    )
+    {
+        if (!module.AllNonStaticFields.TryGetValue(fieldName, out var cilField)) throw new UnreachableException();
+
+        var classObject = stackVariables.Pop();
+
+        if (classObject.Type == Utils.UIntPtr) // We have a pointer
+        {
+            var actualAddress = new CDot(classObject, "value");
+            var cast = new CCast(false, true, cilField.ParentType.CType, actualAddress);
+            var variable = new CVariable(true, false, cilField.Type.CType, NewStackVariableName(ref stackVariableCount));
+
+            stackVariables.Push(variable);
+            builder.AddVariable(variable, new CDot(cast, cilField.Name, true));
+        }
+        else // We have an object reference (a struct)
+        {
+            var variable = new CVariable(true, false, cilField.Type.CType, NewStackVariableName(ref stackVariableCount));
+
+            stackVariables.Push(variable);
+            builder.AddVariable(variable, new CDot(classObject, cilField.Name));
+        }
+    }
+
     private static void EmitStfld(
         ref CilModule module,
         ref CBuilder builder,
@@ -661,10 +749,8 @@ public static class Emitter
     )
     {
         var value = stackVariables.Pop();
-        var actualValue = new CDot(value, "value");
-        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
+        var variable = ConvertValue(ref builder, ref stackVariableCount, value, type);
 
-        builder.AddVariable(variable, CreateStruct(actualValue));
         stackVariables.Push(variable);
     }
 
