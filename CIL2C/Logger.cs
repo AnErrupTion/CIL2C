@@ -1,15 +1,20 @@
 namespace CIL2C;
 
-public class Logger
+public static class Logger
 {
-    public readonly bool Enabled;
+    private static bool _verbose;
 
-    public Logger(bool enabled) => Enabled = enabled;
+    public static void Initialize(bool verbose) => _verbose = verbose;
 
-    public void Info(string text)
+    public static void VerboseInfo(string text)
     {
-        if (!Enabled) return;
+        if (!_verbose) return;
 
+        Console.WriteLine($"[INFO] {text}");
+    }
+
+    public static void Info(string text)
+    {
         Console.WriteLine($"[INFO] {text}");
     }
 }

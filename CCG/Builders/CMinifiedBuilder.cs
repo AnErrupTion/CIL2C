@@ -20,6 +20,8 @@ public class CMinifiedBuilder : CBuilder
 
     public override CBuilder Clone() => new CMinifiedBuilder(false, EnableComments);
 
+    public override void Prepend(CBuilder builder) => _builder.Insert(0, builder);
+
     public override void Append(CBuilder builder) => _builder.Append(builder);
 
     #region Comments

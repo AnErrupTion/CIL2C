@@ -1,5 +1,4 @@
 using CCG;
-using dnlib.DotNet;
 
 namespace CIL2C.TypeSystem;
 
@@ -11,8 +10,6 @@ public sealed record CilType(
     bool IsEnum,
     bool IsClass,
     bool IsStruct,
-    Dictionary<string, CilField> Fields,
-
-    // Not translated from dnlib
-    CustomAttributeCollection CustomAttributes
+    bool PackStruct,
+    Dictionary<string, CilField> Fields
 );

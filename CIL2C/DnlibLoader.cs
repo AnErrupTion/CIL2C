@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using CCG;
 using CCG.Expressions;
 using CIL2C.TypeSystem;
@@ -24,7 +25,22 @@ public static class DnlibLoader
 
         foreach (var type in moduleDefTypes)
         {
-            var fields = new Dictionary<string, CilField>();
+            var packStruct = false;
+            foreach (var attribute in type.CustomAttributes)
+            {
+                if (attribute.TypeFullName is not "System.Runtime.InteropServices.StructLayoutAttribute") continue;
+
+                var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
+                if (layoutKind == LayoutKind.Explicit)
+                {
+                    throw new NotImplementedException("Explicit layouts in structs aren't supported!");
+                }
+
+                var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
+                packStruct = pack == 1;
+
+                break;
+            }
 
             var typeSafeName = Utils.GetSafeName(type.Name);
             var typeSafeFullName = Utils.GetSafeName(type.FullName);
@@ -35,8 +51,8 @@ public static class DnlibLoader
                 type.IsEnum,
                 type is { IsClass: true, IsEnum: false },
                 type is { IsValueType: true, IsEnum: false },
-                fields,
-                type.CustomAttributes
+                packStruct,
+                new Dictionary<string, CilField>()
             );
 
             types.Add(type.FullName, cilType);
@@ -75,7 +91,7 @@ public static class DnlibLoader
 
             foreach (var method in type.Methods)
             {
-                // TODO: Remove this line once we can emit newarr
+                // TODO: Remove this line once we can emit newarr and stelem.i1
                 if (!method.IsStaticConstructor
                     && method.DeclaringType.FullName != moduleDef.EntryPoint.DeclaringType.FullName) continue;
 

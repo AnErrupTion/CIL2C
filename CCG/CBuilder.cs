@@ -16,6 +16,8 @@ public abstract class CBuilder
 
     public abstract CBuilder Clone();
 
+    public abstract void Prepend(CBuilder builder);
+
     public abstract void Append(CBuilder builder);
 
     public void AddComment(string text)

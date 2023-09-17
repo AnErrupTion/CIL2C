@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using CCG;
 using CCG.Expressions;
 using CIL2C.TypeSystem;
@@ -12,30 +11,15 @@ public static class Emitter
 {
     public static void EmitType(
         ref CBuilder builder,
-        string name,
+        ref List<string> emittedStructs,
         CilType type
     )
     {
         if (type.IsClass)
         {
-            var packStruct = false;
+            if (emittedStructs.Contains(type.FullName)) return;
 
-            foreach (var attribute in type.CustomAttributes)
-            {
-                if (attribute.TypeFullName is not "System.Runtime.InteropServices.StructLayoutAttribute") continue;
-
-                var layoutKind = (LayoutKind)attribute.GetProperty("Value").Value;
-                if (layoutKind == LayoutKind.Explicit)
-                {
-                    throw new NotImplementedException("Explicit layouts in structs aren't supported!");
-                }
-
-                var pack = Convert.ToInt32(attribute.GetField("Pack").Value);
-                packStruct = pack == 1;
-
-                break;
-            }
-
+            var cBuilder = builder.Clone();
             var structFields = new List<CStructField>();
 
             if (!type.IsStruct)
@@ -43,30 +27,30 @@ public static class Emitter
                 structFields.Add(new CStructField(false, CType.UIntPtr, "methodTable"));
             }
 
-            switch (name)
-            {
-                case "System.Char": structFields.Add(new CStructField(false, CType.UInt16, "value")); break;
-                case "System.Boolean": structFields.Add(new CStructField(false, CType.Boolean, "value")); break;
-                case "System.SByte": structFields.Add(new CStructField(false, CType.Int8, "value")); break;
-                case "System.Int16": structFields.Add(new CStructField(false, CType.Int16, "value")); break;
-                case "System.Int32": structFields.Add(new CStructField(false, CType.Int32, "value")); break;
-                case "System.Int64": structFields.Add(new CStructField(false, CType.Int64, "value")); break;
-                case "System.Byte": structFields.Add(new CStructField(false, CType.UInt8, "value")); break;
-                case "System.UInt16": structFields.Add(new CStructField(false, CType.UInt16, "value")); break;
-                case "System.UInt32": structFields.Add(new CStructField(false, CType.UInt32, "value")); break;
-                case "System.UInt64": structFields.Add(new CStructField(false, CType.UInt64, "value")); break;
-                case "System.IntPtr": structFields.Add(new CStructField(false, CType.IntPtr, "value")); break;
-                case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
-            }
+            if (type.FullName == Utils.Char.Name) structFields.Add(new CStructField(false, CType.UInt16, "value"));
+            else if (type.FullName == Utils.Boolean.Name) structFields.Add(new CStructField(false, CType.Boolean, "value"));
+            else if (type.FullName == Utils.SByte.Name) structFields.Add(new CStructField(false, CType.Int8, "value"));
+            else if (type.FullName == Utils.Int16.Name) structFields.Add(new CStructField(false, CType.Int16, "value"));
+            else if (type.FullName == Utils.Int32.Name) structFields.Add(new CStructField(false, CType.Int32, "value"));
+            else if (type.FullName == Utils.Int64.Name) structFields.Add(new CStructField(false, CType.Int64, "value"));
+            else if (type.FullName == Utils.Byte.Name) structFields.Add(new CStructField(false, CType.UInt8, "value"));
+            else if (type.FullName == Utils.UInt16.Name) structFields.Add(new CStructField(false, CType.UInt16, "value"));
+            else if (type.FullName == Utils.UInt32.Name) structFields.Add(new CStructField(false, CType.UInt32, "value"));
+            else if (type.FullName == Utils.UInt64.Name) structFields.Add(new CStructField(false, CType.UInt64, "value"));
+            else if (type.FullName == Utils.IntPtr.Name) structFields.Add(new CStructField(false, CType.IntPtr, "value"));
+            else if (type.FullName == Utils.UIntPtr.Name) structFields.Add(new CStructField(false, CType.UIntPtr, "value"));
 
             foreach (var field in type.Fields)
             {
                 if (field.Value.IsStatic) continue;
+                if (field.Value.Type.IsStruct) EmitType(ref cBuilder, ref emittedStructs, field.Value.Type);
 
                 structFields.Add(new CStructField(false, field.Value.Type.CType, field.Value.Name));
             }
 
-            builder.AddStruct(type.FullName, packStruct, structFields.ToArray());
+            cBuilder.AddStruct(type.FullName, type.PackStruct, structFields.ToArray());
+            emittedStructs.Add(type.FullName);
+            builder.Prepend(cBuilder);
             return;
         }
 
@@ -323,7 +307,7 @@ public static class Emitter
                 case Code.Initobj: EmitInitobj(ref module, ref builder, ref stackVariables, ((TypeDef)instruction.Operand).FullName); break;
                 default:
                 {
-                    Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
+                    Logger.Info($"Unimplemented opcode: {instruction.OpCode}");
                     break;
                 }
             }

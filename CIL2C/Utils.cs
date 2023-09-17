@@ -6,9 +6,9 @@ namespace CIL2C;
 
 internal static partial class Utils
 {
-    public static readonly CType Object = new(GetSafeName("System.Object"));
     public static readonly CType Void = new(GetSafeName("System.Void"));
     public static readonly CType Boolean = new(GetSafeName("System.Boolean"));
+    public static readonly CType Char = new(GetSafeName("System.Char"));
     public static readonly CType SByte = new(GetSafeName("System.SByte"));
     public static readonly CType Int16 = new(GetSafeName("System.Int16"));
     public static readonly CType Int32 = new(GetSafeName("System.Int32"));
