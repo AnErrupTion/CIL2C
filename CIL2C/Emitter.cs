@@ -287,6 +287,7 @@ public static class Emitter
                 case Code.Bne_Un_S:
                 case Code.Bne_Un: EmitCmpBr(ref builder, ref stackVariables, ((Instruction)instruction.Operand).Offset, CCompareOperator.NotEqual); break;
                 case Code.Sizeof: EmitSizeof(ref builder, ref stackVariables, ref stackVariableCount, Utils.GetSafeName(((TypeDef)instruction.Operand).FullName)); break;
+                case Code.Initobj: EmitInitobj(ref module, ref builder, ref stackVariables, ((TypeDef)instruction.Operand).FullName); break;
                 default:
                 {
                     Console.WriteLine($"Unimplemented opcode: {instruction.OpCode}");
@@ -772,6 +773,22 @@ public static class Emitter
 
         builder.AddVariable(variable, CreateStruct(sizeOf));
         stackVariables.Push(variable);
+    }
+
+    private static void EmitInitobj(
+        ref CilModule module,
+        ref CBuilder builder,
+        ref Stack<CVariable> stackVariables,
+        string typeName
+    )
+    {
+        var type = module.Types[typeName];
+        var address = stackVariables.Pop();
+        var actualAddress = new CDot(address, "value");
+        var cast = new CCast(false, true, type.CType, actualAddress);
+        var value = GetDefaultValue(type);
+
+        builder.SetValueExpression(new CPointer(cast), new CCast(false, false, type.CType, value));
     }
 
     #endregion
