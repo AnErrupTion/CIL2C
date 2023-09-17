@@ -64,13 +64,12 @@ public static class Emitter
                 case "System.UIntPtr": structFields.Add(new CStructField(false, CType.UIntPtr, "value")); break;
             }
 
-            /*foreach (var field in type.Fields)
+            foreach (var field in type.Fields)
             {
-                if (field.IsStatic) continue;
+                if (field.Value.IsStatic) continue;
 
-                var cType = GetCType(ref types, field.FieldType);
-                structFields.Add(new CStructField(false, cType, field.Name));
-            }*/
+                structFields.Add(new CStructField(false, field.Value.Type.CType, field.Value.Name));
+            }
 
             builder.AddStruct(type.FullName, packStruct, structFields.ToArray());
             return;

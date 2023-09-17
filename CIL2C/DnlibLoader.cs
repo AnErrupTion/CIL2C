@@ -24,11 +24,12 @@ public static class DnlibLoader
         {
             var fields = new Dictionary<string, CilField>();
 
-            var typeSafeName = Utils.GetSafeName(type.FullName);
+            var typeSafeName = Utils.GetSafeName(type.Name);
+            var typeSafeFullName = Utils.GetSafeName(type.FullName);
             var cilType = new CilType(
+                typeSafeFullName,
                 typeSafeName,
-                type.Name,
-                GetCType(ref types, type.Name, typeSafeName),
+                GetCType(type.FullName, typeSafeFullName),
                 type.IsEnum,
                 type is { IsClass: true, IsEnum: false },
                 type is { IsValueType: true, IsEnum: false },
@@ -45,15 +46,16 @@ public static class DnlibLoader
 
             foreach (var field in type.Fields)
             {
-                var fieldSafeName = Utils.GetSafeName(field.FullName);
+                var fieldSafeName = Utils.GetSafeName(field.Name);
+                var fieldSafeFullName = Utils.GetSafeName(field.FullName);
                 var fieldType = GetCilType(ref types, field.FieldType.FullName);
                 var cilField = new CilField(
                     cilType,
                     fieldType,
+                    fieldSafeFullName,
                     fieldSafeName,
-                    field.Name,
                     field.IsStatic,
-                    new CVariable(field.HasConstant, false, fieldType.CType, fieldSafeName),
+                    new CVariable(field.HasConstant, false, fieldType.CType, fieldSafeFullName),
                     field.HasConstant ? field.Constant.Value : null
                 );
 
@@ -111,7 +113,7 @@ public static class DnlibLoader
                     cilType,
                     GetCilType(ref types, method.ReturnType.FullName),
                     Utils.GetSafeName(method.FullName),
-                    method.Name,
+                    Utils.GetSafeName(method.Name),
                     method.IsStatic,
                     cilMethodArguments,
                     cilMethodBody
@@ -140,16 +142,12 @@ public static class DnlibLoader
     }
 
     private static CType GetCType(
-        ref Dictionary<string, CilType> types,
-        string name,
-        string safeName
+        string fullName,
+        string safeFullName
     )
     {
         // The documentation says pointers are native int, but that doesn't make sense since addresses can't be unsigned
-        if (name.EndsWith('*') || name.EndsWith("[]")) return Utils.UIntPtr;
-        if (types.TryGetValue(name, out var value)) return value.CType;
-
-        return new CType(safeName);
+        return fullName.EndsWith('*') || fullName.EndsWith("[]") ? Utils.UIntPtr : new CType(safeFullName);
     }
 
     private static CilType GetCilType(
@@ -158,8 +156,6 @@ public static class DnlibLoader
     )
     {
         // The documentation says pointers are native int, but that doesn't make sense since addresses can't be unsigned
-        if (fullName.EndsWith('*') || fullName.EndsWith("[]")) return types["System.UIntPtr"];
-
-        return types[fullName];
+        return fullName.EndsWith('*') || fullName.EndsWith("[]") ? types["System.UIntPtr"] : types[fullName];
     }
 }
