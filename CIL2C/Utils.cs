@@ -6,19 +6,19 @@ namespace CIL2C;
 
 internal static partial class Utils
 {
-    public static readonly CType Object = new(GetSafeName("System.Object"), true);
-    public static readonly CType Void = new(GetSafeName("System.Void"), true);
-    public static readonly CType Boolean = new(GetSafeName("System.Boolean"), true);
-    public static readonly CType SByte = new(GetSafeName("System.SByte"), true);
-    public static readonly CType Int16 = new(GetSafeName("System.Int16"), true);
-    public static readonly CType Int32 = new(GetSafeName("System.Int32"), true);
-    public static readonly CType Int64 = new(GetSafeName("System.Int64"), true);
-    public static readonly CType Byte = new(GetSafeName("System.Byte"), true);
-    public static readonly CType UInt16 = new(GetSafeName("System.UInt16"), true);
-    public static readonly CType UInt32 = new(GetSafeName("System.UInt32"), true);
-    public static readonly CType UInt64 = new(GetSafeName("System.UInt64"), true);
-    public static readonly CType IntPtr = new(GetSafeName("System.IntPtr"), true);
-    public static readonly CType UIntPtr = new(GetSafeName("System.UIntPtr"), true);
+    public static readonly CType Object = new(GetSafeName("System.Object"));
+    public static readonly CType Void = new(GetSafeName("System.Void"));
+    public static readonly CType Boolean = new(GetSafeName("System.Boolean"));
+    public static readonly CType SByte = new(GetSafeName("System.SByte"));
+    public static readonly CType Int16 = new(GetSafeName("System.Int16"));
+    public static readonly CType Int32 = new(GetSafeName("System.Int32"));
+    public static readonly CType Int64 = new(GetSafeName("System.Int64"));
+    public static readonly CType Byte = new(GetSafeName("System.Byte"));
+    public static readonly CType UInt16 = new(GetSafeName("System.UInt16"));
+    public static readonly CType UInt32 = new(GetSafeName("System.UInt32"));
+    public static readonly CType UInt64 = new(GetSafeName("System.UInt64"));
+    public static readonly CType IntPtr = new(GetSafeName("System.IntPtr"));
+    public static readonly CType UIntPtr = new(GetSafeName("System.UIntPtr"));
 
     public static readonly CConstantInt IntM1 = new(-1);
     public static readonly CConstantInt Int0 = new(0);

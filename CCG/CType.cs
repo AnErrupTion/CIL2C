@@ -18,29 +18,21 @@ public sealed class CType
     public static readonly CType USize = new("usize_t");
 
     public readonly string Name;
-    public readonly bool IsStruct;
-    public readonly bool IsEnum;
-    public readonly CStructField[]? StructFields;
-    public readonly CEnumField[]? EnumFields;
 
-    public CType(string name, bool isStruct = false, bool isEnum = false, CStructField[]? structFields = null, CEnumField[]? enumFields = null)
+    public CType(string name)
     {
         Name = name;
-        IsStruct = isStruct;
-        IsEnum = isEnum;
-        StructFields = structFields;
-        EnumFields = enumFields;
     }
 
     public static bool operator ==(CType type1, CType type2) => type1.Equals(type2);
     public static bool operator !=(CType type1, CType type2) => !type1.Equals(type2);
 
-    public override int GetHashCode() => HashCode.Combine(Name, IsStruct, IsEnum);
+    public override int GetHashCode() => Name.GetHashCode();
 
     public override bool Equals(object? obj)
     {
         if (obj is not CType type) return false;
-        return Name == type.Name && IsStruct == type.IsStruct && IsEnum == type.IsEnum;
+        return Name == type.Name;
     }
 
     public override string ToString() => Name;
