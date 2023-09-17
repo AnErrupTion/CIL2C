@@ -558,10 +558,9 @@ public static class Emitter
         CVariable argument
     )
     {
-        var currentValue = stackVariables.Peek();
-        if (currentValue.Type != argument.Type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, argument.Type);
-
         var value = stackVariables.Pop();
+        if (value.Type != argument.Type) value = ConvertValue(ref builder, ref stackVariableCount, value, argument.Type);
+
         builder.SetValueExpression(argument, value);
     }
 
@@ -586,10 +585,9 @@ public static class Emitter
     {
         if (!module.AllStaticFields.TryGetValue(fieldName, out var cilField)) throw new UnreachableException();
 
-        var currentValue = stackVariables.Peek();
-        if (currentValue.Type != cilField.Type.CType) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, cilField.Type.CType);
-
         var value = stackVariables.Pop();
+        if (value.Type != cilField.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, cilField.Type.CType);
+
         builder.SetValueExpression(cilField.Definition, value);
     }
 
@@ -633,10 +631,9 @@ public static class Emitter
     {
         if (!module.AllNonStaticFields.TryGetValue(fieldName, out var cilField)) throw new UnreachableException();
 
-        var currentValue = stackVariables.Peek();
-        if (currentValue.Type != cilField.Type.CType) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, cilField.Type.CType);
-
         var value = stackVariables.Pop();
+        if (value.Type != cilField.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, cilField.Type.CType);
+
         var classObject = stackVariables.Pop();
 
         if (classObject.Type == Utils.UIntPtr) // We have a pointer
@@ -667,11 +664,11 @@ public static class Emitter
         for (var i = arguments.Length - 1; i >= 0; i--)
         {
             var parameter = cilMethod.Arguments[i];
-            var variable = stackVariables.Peek();
+            var value = stackVariables.Pop();
 
-            if (variable.Type != parameter.Type.CType) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, parameter.Type.CType);
+            if (value.Type != parameter.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, parameter.Type.CType);
 
-            arguments[i] = stackVariables.Pop();
+            arguments[i] = value;
         }
 
         var call = new CCall(cilMethod.FullName, arguments);
@@ -709,10 +706,9 @@ public static class Emitter
         CilLocal localVariable
     )
     {
-        var currentValue = stackVariables.Peek();
-        if (currentValue.Type != localVariable.Type.CType) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, localVariable.Type.CType);
-
         var value = stackVariables.Pop();
+        if (value.Type != localVariable.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, localVariable.Type.CType);
+
         builder.SetValueExpression(localVariable.Definition, value);
     }
 
@@ -769,10 +765,9 @@ public static class Emitter
         CType type
     )
     {
-        var currentValue = stackVariables.Peek();
-        if (currentValue.Type != type) EmitConv(ref builder, ref stackVariables, ref stackVariableCount, type);
-
         var value = stackVariables.Pop();
+        if (value.Type != type) value = ConvertValue(ref builder, ref stackVariableCount, value, type);
+
         var address = stackVariables.Pop();
         var actualAddress = new CDot(address, "value");
         var pointer = new CPointer(new CCast(false, true, type, actualAddress));
