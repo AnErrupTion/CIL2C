@@ -131,14 +131,12 @@ public static class Emitter
             builder.BeginBlock();
 
             var arguments = new CExpression[functionArguments.Length];
-            var methodVariableCount = 0U;
-
             for (var i = 0; i < arguments.Length; i++)
             {
                 var functionArgument = functionArguments[i];
                 var cType = ToCType(functionArgument.Type);
 
-                arguments[i] = ConvertValue(ref builder, ref methodVariableCount, functionArgument, cType, false);
+                arguments[i] = ConvertValue(functionArgument, cType, false);
             }
 
             var call = new CCall(method.ExternalCFunctionName, arguments);
@@ -146,7 +144,6 @@ public static class Emitter
             if (method.ReturnType.CType != Utils.Void)
             {
                 var value = CreateStruct(call);
-
                 builder.AddReturn(new CCast(true, false, method.ReturnType.CType, value));
             }
             else
@@ -208,11 +205,11 @@ public static class Emitter
                 case Code.Ldarg_2: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[2]); break;
                 case Code.Ldarg_3: EmitLdarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[3]); break;
                 case Code.Starg_S:
-                case Code.Starg: EmitStarg(ref builder, ref stackVariables, ref stackVariableCount, functionArguments[((Parameter)instruction.Operand).Index]); break;
+                case Code.Starg: EmitStarg(ref builder, ref stackVariables, functionArguments[((Parameter)instruction.Operand).Index]); break;
                 case Code.Ldsfld: EmitLdsfld(ref module, ref stackVariables, ((FieldDef)instruction.Operand).FullName); break;
-                case Code.Stsfld: EmitStsfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
+                case Code.Stsfld: EmitStsfld(ref module, ref builder, ref stackVariables, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Ldfld: EmitLdfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
-                case Code.Stfld: EmitStfld(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((FieldDef)instruction.Operand).FullName); break;
+                case Code.Stfld: EmitStfld(ref module, ref builder, ref stackVariables, ((FieldDef)instruction.Operand).FullName); break;
                 case Code.Call: EmitCall(ref module, ref builder, ref stackVariables, ref stackVariableCount, ((MethodDef)instruction.Operand).FullName); break;
                 case Code.Ret: EmitRet(ref builder, ref stackVariables); break;
                 case Code.Add: EmitBinaryOperation(ref builder, ref stackVariables, ref stackVariableCount, CBinaryOperator.Add); break;
@@ -254,11 +251,11 @@ public static class Emitter
                 case Code.Ldloc_2: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[2]); break;
                 case Code.Ldloc_3: EmitLdloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[3]); break;
                 case Code.Stloc_S:
-                case Code.Stloc: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[((Local)instruction.Operand).Index]); break;
-                case Code.Stloc_0: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[0]); break;
-                case Code.Stloc_1: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[1]); break;
-                case Code.Stloc_2: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[2]); break;
-                case Code.Stloc_3: EmitStloc(ref builder, ref stackVariables, ref stackVariableCount, method.Body.Locals[3]); break;
+                case Code.Stloc: EmitStloc(ref builder, ref stackVariables, method.Body.Locals[((Local)instruction.Operand).Index]); break;
+                case Code.Stloc_0: EmitStloc(ref builder, ref stackVariables, method.Body.Locals[0]); break;
+                case Code.Stloc_1: EmitStloc(ref builder, ref stackVariables, method.Body.Locals[1]); break;
+                case Code.Stloc_2: EmitStloc(ref builder, ref stackVariables, method.Body.Locals[2]); break;
+                case Code.Stloc_3: EmitStloc(ref builder, ref stackVariables, method.Body.Locals[3]); break;
                 case Code.Stobj: EmitStobj(ref builder, ref stackVariables, Utils.GetSafeName(((TypeDef)instruction.Operand).FullName)); break;
                 // The documentation says ldind.i and stind operands are signed, but that makes no sense so we're making them unsigned
                 case Code.Ldind_I1:
@@ -268,10 +265,10 @@ public static class Emitter
                 case Code.Ldind_I4:
                 case Code.Ldind_U4: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
                 case Code.Ldind_I8: EmitLdind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
-                case Code.Stind_I1: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.Byte); break;
-                case Code.Stind_I2: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt16); break;
-                case Code.Stind_I4: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt32); break;
-                case Code.Stind_I8: EmitStind(ref builder, ref stackVariables, ref stackVariableCount, Utils.UInt64); break;
+                case Code.Stind_I1: EmitStind(ref builder, ref stackVariables, Utils.Byte); break;
+                case Code.Stind_I2: EmitStind(ref builder, ref stackVariables, Utils.UInt16); break;
+                case Code.Stind_I4: EmitStind(ref builder, ref stackVariables, Utils.UInt32); break;
+                case Code.Stind_I8: EmitStind(ref builder, ref stackVariables, Utils.UInt64); break;
                 case Code.Ceq: EmitCmp(ref builder, ref stackVariables, ref stackVariableCount, CCompareOperator.Equal); break;
                 case Code.Cgt_Un:
                 case Code.Cgt: EmitCmp(ref builder, ref stackVariables, ref stackVariableCount, CCompareOperator.Above); break;
@@ -408,19 +405,15 @@ public static class Emitter
         return new CBlock(structValue);
     }
 
-    private static CVariable ConvertValue(
-        ref CBuilder builder,
-        ref uint stackVariableCount,
+    private static CExpression ConvertValue(
         CExpression value,
         CType type,
         bool createStruct = true
     )
     {
         var actualValue = new CDot(value, "value");
-        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
-        builder.AddVariable(variable, createStruct ? CreateStruct(actualValue) : actualValue);
-        return variable;
+        return createStruct ? new CCast(true, false, type, CreateStruct(actualValue)) : actualValue;
     }
 
     private static CType ToCType(
@@ -554,14 +547,15 @@ public static class Emitter
     private static void EmitStarg(
         ref CBuilder builder,
         ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount,
         CVariable argument
     )
     {
         var value = stackVariables.Pop();
-        if (value.Type != argument.Type) value = ConvertValue(ref builder, ref stackVariableCount, value, argument.Type);
 
-        builder.SetValueExpression(argument, value);
+        CExpression actualValue = value;
+        if (value.Type != argument.Type) actualValue = ConvertValue(value, argument.Type);
+
+        builder.SetValueExpression(argument, actualValue);
     }
 
     private static void EmitLdsfld(
@@ -579,16 +573,17 @@ public static class Emitter
         ref CilModule module,
         ref CBuilder builder,
         ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount,
         string fieldName
     )
     {
         if (!module.AllStaticFields.TryGetValue(fieldName, out var cilField)) throw new UnreachableException();
 
         var value = stackVariables.Pop();
-        if (value.Type != cilField.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, cilField.Type.CType);
 
-        builder.SetValueExpression(cilField.Definition, value);
+        CExpression actualValue = value;
+        if (value.Type != cilField.Type.CType) actualValue = ConvertValue(value, cilField.Type.CType);
+
+        builder.SetValueExpression(cilField.Definition, actualValue);
     }
 
     private static void EmitLdfld(
@@ -625,14 +620,15 @@ public static class Emitter
         ref CilModule module,
         ref CBuilder builder,
         ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount,
         string fieldName
     )
     {
         if (!module.AllNonStaticFields.TryGetValue(fieldName, out var cilField)) throw new UnreachableException();
 
         var value = stackVariables.Pop();
-        if (value.Type != cilField.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, cilField.Type.CType);
+
+        CExpression actualValue = value;
+        if (value.Type != cilField.Type.CType) actualValue = ConvertValue(value, cilField.Type.CType);
 
         var classObject = stackVariables.Pop();
 
@@ -641,11 +637,11 @@ public static class Emitter
             var actualAddress = new CDot(classObject, "value");
             var cast = new CCast(false, true, cilField.ParentType.CType, actualAddress);
 
-            builder.SetValueExpression(new CDot(cast, cilField.Name, true), value);
+            builder.SetValueExpression(new CDot(cast, cilField.Name, true), actualValue);
         }
         else // We have an object reference (a struct)
         {
-            builder.SetValueExpression(new CDot(classObject, cilField.Name), value);
+            builder.SetValueExpression(new CDot(classObject, cilField.Name), actualValue);
         }
     }
 
@@ -666,9 +662,10 @@ public static class Emitter
             var parameter = cilMethod.Arguments[i];
             var value = stackVariables.Pop();
 
-            if (value.Type != parameter.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, parameter.Type.CType);
+            CExpression actualValue = value;
+            if (value.Type != parameter.Type.CType) actualValue = ConvertValue(value, parameter.Type.CType);
 
-            arguments[i] = value;
+            arguments[i] = actualValue;
         }
 
         var call = new CCall(cilMethod.FullName, arguments);
@@ -702,14 +699,15 @@ public static class Emitter
     private static void EmitStloc(
         ref CBuilder builder,
         ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount,
         CilLocal localVariable
     )
     {
         var value = stackVariables.Pop();
-        if (value.Type != localVariable.Type.CType) value = ConvertValue(ref builder, ref stackVariableCount, value, localVariable.Type.CType);
 
-        builder.SetValueExpression(localVariable.Definition, value);
+        CExpression actualValue = value;
+        if (value.Type != localVariable.Type.CType) actualValue = ConvertValue(value, localVariable.Type.CType);
+
+        builder.SetValueExpression(localVariable.Definition, actualValue);
     }
 
     private static void EmitStobj(
@@ -737,8 +735,10 @@ public static class Emitter
     )
     {
         var value = stackVariables.Pop();
-        var variable = ConvertValue(ref builder, ref stackVariableCount, value, type);
+        var actualValue = new CDot(value, "value");
+        var variable = new CVariable(true, false, type, NewStackVariableName(ref stackVariableCount));
 
+        builder.AddVariable(variable, CreateStruct(actualValue));
         stackVariables.Push(variable);
     }
 
@@ -761,18 +761,19 @@ public static class Emitter
     private static void EmitStind(
         ref CBuilder builder,
         ref Stack<CVariable> stackVariables,
-        ref uint stackVariableCount,
         CType type
     )
     {
         var value = stackVariables.Pop();
-        if (value.Type != type) value = ConvertValue(ref builder, ref stackVariableCount, value, type);
+
+        CExpression actualValue = value;
+        if (value.Type != type) actualValue = ConvertValue(value, type);
 
         var address = stackVariables.Pop();
         var actualAddress = new CDot(address, "value");
         var pointer = new CPointer(new CCast(false, true, type, actualAddress));
 
-        builder.SetValueExpression(pointer, value);
+        builder.SetValueExpression(pointer, actualValue);
     }
 
     private static void EmitCmp(
